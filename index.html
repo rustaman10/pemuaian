@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f97316">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Modul Pemuaian">
+<title>Modul Pemuaian</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#1f2a44;--muted:#5d6b88;--line:#e2e8f3;--accent:#f97316;--accent2:#2563eb;--ok:#16a34a;--bad:#dc2626;--r:16px}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1524;--card:#18203a;--ink:#e8edf8;--muted:#9aa8c7;--line:#2a3558}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Nunito,"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.bar{max-width:1100px;margin:auto;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
+.logo{font-weight:800;font-size:1.15rem;margin-right:8px}
+.logo span{color:var(--accent)}
+/* bilah bawah: balik halaman buku */
+.bookbar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+.bk-in{max-width:1100px;margin:auto;display:flex;align-items:center;gap:10px}
+.bk-arrow{flex:0 0 44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:1rem;cursor:pointer}
+.bk-arrow.next{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.bk-arrow:disabled{opacity:.35;cursor:default}
+.bk-mid{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.bk-isi{border:0;background:transparent;color:var(--accent2);font:inherit;font-weight:800;cursor:pointer;padding:2px 8px}
+.bk-num{font-size:.75rem;color:var(--muted);font-weight:700;white-space:nowrap}
+/* ---------- Halaman buku ---------- */
+:root{--paper:#fffdf7}
+@media(prefers-color-scheme:dark){:root{--paper:#151c33}}
+main{overflow-x:clip;display:flex;justify-content:center;align-items:flex-start;position:relative}
+main.spread{max-width:1500px}
+.chap{display:none}
+/* satu lembar = halaman tegak (portrait) setinggi layar, tanpa gulir */
+.panel{position:relative;z-index:1;background:var(--paper);border-radius:6px 18px 18px 6px;padding:12px 20px 8px 32px;height:var(--pageH,600px);width:var(--pageW,100%);flex:0 0 auto;flex-direction:column;
+  box-shadow:0 12px 28px rgba(15,23,42,.10),4px 4px 0 -1px var(--paper),4px 4px 0 0 var(--line),8px 8px 0 -1px var(--paper),8px 8px 0 0 var(--line)}
+.panel.active,.panel.measure{display:flex}
+.panel.measure{visibility:hidden;position:absolute;left:0;top:0}
+/* dua halaman terbuka: halaman kiri dijilid di sisi kanan */
+.panel.lp{border-radius:18px 4px 4px 18px;padding:12px 32px 8px 20px;
+  box-shadow:0 12px 28px rgba(15,23,42,.10),-4px 4px 0 -1px var(--paper),-4px 4px 0 0 var(--line),-8px 8px 0 -1px var(--paper),-8px 8px 0 0 var(--line)}
+.panel.lp::before{left:auto;right:0;border-radius:0 4px 4px 0;background:linear-gradient(270deg,rgba(0,0,0,.16),rgba(0,0,0,0))}
+.panel.rp{border-radius:4px 18px 18px 4px}
+.sheet-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;container-type:inline-size}
+.sheet-body>:last-child{margin-bottom:0}
+.panel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:24px;border-radius:6px 0 0 6px;background:linear-gradient(90deg,rgba(0,0,0,.14),rgba(0,0,0,0));pointer-events:none}
+.pghead{display:flex;justify-content:space-between;gap:10px;font-size:.75rem;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:10px;letter-spacing:.02em}
+.pgfoot{text-align:center;color:var(--muted);font-weight:800;font-size:.8rem;padding-top:6px}
+.card.cont::before{content:'… lanjutan';display:block;font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:4px}
+.sheet-body>h2{margin-top:0}
+/* efek balik halaman */
+.panel.pg-out,.panel.pg-under{display:flex;overflow:hidden;pointer-events:none}
+.panel.pg-out{z-index:4;transform-origin:left center;animation:turnOut .8s cubic-bezier(.45,.05,.55,.95) forwards}
+.panel.pg-under{z-index:0}
+.panel.pg-in{z-index:4;transform-origin:left center;animation:turnIn .8s cubic-bezier(.45,.05,.55,.95)}
+/* membalik ke belakang pada tampilan dua halaman: halaman kiri berputar di jilid kanan */
+.panel.pg-outb{display:flex;overflow:hidden;pointer-events:none;z-index:4;transform-origin:right center;animation:turnOutB .8s cubic-bezier(.45,.05,.55,.95) forwards}
+.panel.pg-out::after,.panel.pg-in::after,.panel.pg-outb::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.05),rgba(0,0,0,.35));animation:shade .8s forwards}
+.panel.pg-outb::after{background:linear-gradient(270deg,rgba(0,0,0,.05),rgba(0,0,0,.35))}
+.panel.pg-in::after{animation-direction:reverse}
+@keyframes turnOutB{0%{transform:perspective(2200px) rotateY(0)}65%{opacity:1}100%{transform:perspective(2200px) rotateY(115deg);opacity:0}}
+@keyframes turnOut{0%{transform:perspective(2200px) rotateY(0)}65%{opacity:1}100%{transform:perspective(2200px) rotateY(-115deg);opacity:0}}
+@keyframes turnIn{0%{transform:perspective(2200px) rotateY(-115deg);opacity:0}35%{opacity:1}100%{transform:perspective(2200px) rotateY(0)}}
+@keyframes shade{from{opacity:0}to{opacity:1}}
+/* sampul */
+/* sampul putih polos; warna ditetapkan agar tetap terbaca di mode gelap */
+.panel.cover{background:#fff;color:#1f2a44;text-align:center;padding:18px 22px 18px 40px}
+.panel.cover .sheet-body{display:flex;flex-direction:column}
+.cv-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;margin:auto 0}
+.sheet-body>.cv-wrap{margin:auto 0}  /* tetap di tengah halaman */
+.cv-l,.cv-r{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+.cv-note{font-size:.72rem;color:#5d6b88;margin:6px 0 0}
+.cv-auth{margin-top:8px;padding-top:8px;border-top:1px solid #e5e9f2;display:flex;flex-direction:column;gap:2px;min-width:min(420px,90%)}
+.cv-auth span{font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#5d6b88}
+.cv-auth b{font-size:.95rem;color:#1f2a44}
+/* saat sampul terbuka, seluruh layar putih agar menyatu */
+body.oncover,body.oncover header,body.oncover .bookbar{background:#fff;color:#1f2a44}
+body.oncover header{border-bottom-color:transparent}
+body.oncover .bookbar{border-top-color:#eef0f4;box-shadow:none}
+body.oncover .ttl,body.oncover .bk-num{color:#5d6b88}
+body.oncover .bk-arrow:not(.next){background:#fff;color:#1f2a44;border-color:#e5e9f2}
+body.oncover .panel.cover{box-shadow:none}
+body.oncover .panel.cover::before{display:none}
+.panel.cover::before{width:30px;background:linear-gradient(90deg,rgba(0,0,0,.10),rgba(0,0,0,0))}
+.cv-top{font-size:.75rem;font-weight:800;letter-spacing:.14em;color:#5d6b88}
+.cv-kicker{margin-top:6px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:#fff1e6;color:#c2410c;padding:3px 14px;border-radius:999px;font-size:.85rem}
+.cv-title{font-size:3.4rem;letter-spacing:.06em;margin:.1em 0 0;color:#1d4ed8}
+.cv-sub{max-width:460px;margin:0;color:#3b4763}
+.panel.cover canvas.mini{max-width:640px;height:140px;background:transparent;margin:4px 0 0}
+.cv-id{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:440px;margin-top:8px}
+.cv-id label{margin:0;text-align:left;font-size:.8rem;color:#3b4763}
+.cv-id input{display:block;width:100%;margin-top:3px;padding:9px 10px;border-radius:10px;border:1px solid #d5dceb;background:#fff;color:#1f2a44;font:inherit;font-size:16px}
+.cv-id input::placeholder{color:#94a0b8}
+.btn.cv-open{background:#2563eb;color:#fff;font-size:1.05rem;padding:11px 26px;border-radius:999px;margin:8px 0 4px;box-shadow:0 8px 20px rgba(37,99,235,.25)}
+.cv-feat{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;font-size:.8rem;font-weight:700}
+.panel.cover .cv-feat span{background:#eef3fb;color:#1f2a44}
+.cv-feat span{padding:3px 10px;border-radius:999px}
+.cv-feat.dark{justify-content:flex-start}
+.cv-feat.dark span{background:var(--illbg)}
+/* daftar isi */
+.toclist{display:flex;flex-direction:column;gap:4px}
+.tocrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-radius:12px;background:transparent;color:var(--ink);font:inherit;line-height:1.3;padding:6px 8px;cursor:pointer}
+.tocrow:hover{background:var(--illbg)}
+.tocrow .ti{font-size:1.6rem}
+.tocrow .tt{display:flex;flex-direction:column;min-width:0}
+.tocrow small{color:var(--muted)}
+.tocrow i{flex:1;align-self:flex-end;border-bottom:2px dotted var(--line);margin:0 4px 8px;min-width:16px}
+.tocrow .tn{font-weight:800;color:var(--accent2);font-size:1.1rem}
+/* pendahuluan & rangkuman */
+ol.steps{padding-left:22px;margin:.3em 0}ol.steps li{margin:.35em 0}
+.peta{display:grid;gap:8px;text-align:center}
+.peta .root{justify-self:center;background:var(--accent);color:#fff;padding:8px 22px;border-radius:999px;font-weight:800}
+.peta .arr{color:var(--muted);font-size:.8rem;font-weight:700}
+.peta .row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.peta .box{border:2px solid var(--accent2);border-radius:12px;padding:10px;font-size:.85rem}
+.peta .box b{display:block;color:var(--accent2);font-size:.95rem}
+.peta .box i{color:var(--muted)}
+.gl{margin:0;padding:6px 0;border-bottom:1px dashed var(--line)}
+.gl b{display:inline-block;min-width:130px;margin-right:6px}
+.endcard{text-align:center}
+@media(max-width:600px){
+  .panel{padding:10px 12px 14px 22px;border-radius:4px 14px 14px 4px}
+  .panel::before{width:16px}
+  .panel.cover{padding:22px 14px 22px 26px}
+  .pghead span:first-child{display:none}
+}
+/* tata letak isi mengikuti lebar HALAMAN (bukan layar), karena halaman tegak bisa sempit */
+@container (max-width:600px){
+  .cv-title{font-size:2.5rem}
+  .peta .row{grid-template-columns:1fr}
+  .gl b{display:block}
+}
+@media(prefers-reduced-motion:reduce){.panel.pg-out,.panel.pg-in{animation:none}}
+body{padding-bottom:calc(72px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+.ttl{margin-left:auto;font-weight:700;color:var(--muted);font-size:.95rem}
+main{max-width:1100px;margin:auto;padding:16px}
+.panel{display:none}
+h1{margin:.2em 0;font-size:1.9rem}h2{margin:.1em 0 .6em;font-size:1.4rem}h3{margin:.2em 0 .5em;font-size:1.05rem}
+.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:18px 0}
+@container (max-width:640px){
+  .grid,.two{grid-template-columns:1fr}
+}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:16px}
+.grid>div>.card:last-child,.cards .card{margin-bottom:0}
+.hero{background:linear-gradient(135deg,#2563eb 0%,#f97316 100%);color:#fff;border-radius:22px;padding:28px 24px}
+.hero p{max-width:620px;margin:.4em 0 0;opacity:.95}
+.tile{cursor:pointer;text-align:left;font:inherit;color:inherit;transition:transform .15s,box-shadow .15s}
+.tile:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.tile .ic{font-size:1.8rem}
+canvas{width:100%;display:block;height:300px}
+canvas.sm{height:250px}
+label{display:block;font-weight:700;font-size:.9rem;margin:12px 0 4px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit}
+.val{float:right;color:var(--accent);font-weight:800}
+.btn{border:0;background:var(--accent2);color:#fff;padding:9px 14px;border-radius:10px;font:inherit;font-weight:700;cursor:pointer;margin:4px 4px 0 0}
+.btn.alt{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.formula{background:rgba(37,99,235,.09);border-left:4px solid var(--accent2);padding:10px 12px;border-radius:8px;font-family:Cambria,Georgia,serif;font-size:1.02rem}
+.cmp{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:.85rem}
+.cmp b{width:78px;font-weight:700}.cmp i{display:block;height:12px;border-radius:6px;background:var(--accent);min-width:2px;transition:width .15s}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:800}
+.on-p{background:#dcfce7;color:#166534}.off-p{background:#fee2e2;color:#991b1b}
+.modes{display:flex;gap:6px;flex-wrap:wrap}
+.modes label{margin:0;font-weight:700;border:1px solid var(--line);border-radius:10px;padding:6px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.opt{display:block;width:100%;text-align:left;margin:8px 0;padding:11px 14px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--ink);font:inherit;cursor:pointer}
+.opt:hover{border-color:var(--accent2)}
+.opt.right{border-color:var(--ok);background:rgba(22,163,74,.12)}.opt.wrong{border-color:var(--bad);background:rgba(220,38,38,.1)}
+ul.tj{padding-left:20px;margin:.3em 0}
+footer{text-align:center;color:var(--muted);font-size:.85rem;padding:24px 16px}
+.note{font-size:.85rem;color:var(--muted);margin-top:8px}
+.misi summary{cursor:pointer;font-size:1rem}
+.misi ol{margin:.6em 0;padding-left:0;list-style:none;counter-reset:m}
+.misi li{counter-increment:m;position:relative;padding:6px 6px 6px 38px;border-radius:10px}
+.misi li:before{content:counter(m);position:absolute;left:6px;top:6px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:.8rem;font-weight:800}
+.misi li.done:before{content:"✓";background:var(--ok);border-color:var(--ok);color:#fff}
+.misi li.done{color:var(--muted)}
+.misi li.man{cursor:pointer}
+.misi li.man:hover{background:rgba(37,99,235,.07)}
+#lksPadat{scroll-margin-top:70px}
+.ans{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:16px}
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* ---------- Materi bacaan ---------- */
+.toc{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+.chip:hover{border-color:var(--accent2)}
+.read p{margin:.5em 0}
+.read h4{margin:1em 0 .3em;font-size:1rem}
+.read ul{padding-left:20px;margin:.3em 0}
+.read li{margin:.2em 0}
+.apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px}
+.app{border:1px solid var(--line);border-radius:12px;padding:12px}
+.app h4{margin:0 0 .3em;font-size:1rem}
+.app p{margin:.3em 0;font-size:.92rem}
+.calc{font-size:.85rem;background:rgba(249,115,22,.1);border-radius:8px;padding:6px 8px;margin-top:6px}
+.grp{display:inline-block;margin:18px 0 4px;padding:3px 12px;border-radius:999px;background:rgba(37,99,235,.12);color:var(--accent2);font-weight:800;font-size:.85rem}
+.lnk{border:0;background:none;color:var(--accent2);font:inherit;font-weight:700;cursor:pointer;padding:0;text-decoration:underline}
+.readlink{margin:-.2em 0 12px;font-size:.9rem;color:var(--muted)}
+.trybtn{margin-top:10px}
+/* ---------- Gambar animasi ---------- */
+:root{--illbg:#eef3fb}
+@media(prefers-color-scheme:dark){:root{--illbg:#121a30}}
+canvas.mini{height:150px;border-radius:12px;background:var(--illbg);margin:10px 0 4px}
+canvas.mini.s{height:120px;margin:0 0 8px}
+canvas.mini.t{height:200px}
+canvas.mini.m{height:170px}
+.hero canvas.mini{height:170px;background:transparent;margin:14px 0 0}
+.figcap{font-size:.8rem;color:var(--muted);text-align:center;margin:0 0 10px}
+.fig2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@container (max-width:600px){.fig2{grid-template-columns:1fr;gap:0}}
+.rv{opacity:0;transform:translateY(18px);transition:opacity .5s ease,transform .5s ease}
+.rv.in{opacity:1;transform:none}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px) rotate(-8deg)}}
+.tile .ic{display:inline-block}
+.tile:hover .ic{animation:bob .6s ease}
+/* ---------- Tata letak ringkas agar muat satu halaman ---------- */
+.app{margin:10px 0}
+@container (min-width:640px){
+  .app{display:grid;grid-template-columns:minmax(220px,42%) 1fr;column-gap:16px;align-items:center}
+  .app canvas.mini.s{grid-row:span 3;margin:0}
+}
+.grid .card{margin-bottom:0}
+.grid{margin-bottom:12px}
+canvas#cvP,canvas#cvC,canvas#cvGas,canvas#cvB{height:250px}
+.ctl label:first-child{margin-top:0}
+.btnrow{display:flex;gap:6px;margin-top:10px}.btnrow .btn{margin:0;flex:1}
+.datatbl{max-height:190px;overflow-y:auto}
+.sim .note{margin-top:4px}
+@container (max-width:600px){
+  canvas#cvP,canvas#cvC,canvas#cvGas,canvas#cvB{height:210px}
+  .ctl label{margin:8px 0 2px}
+  .ctl .modes{flex-direction:row}.ctl .modes label{width:auto;padding:6px 10px}
+}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.tile:hover .ic{animation:none}}
+/* ---------- Lembar kerja buku tulis ---------- */
+.lks{border-left:5px solid var(--accent)}
+.lks h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lks h4{margin:1.1em 0 .3em;font-size:1rem;color:var(--accent2)}
+.lks p{margin:.4em 0}
+.lks ol,.lks ul{padding-left:22px;margin:.3em 0}
+.lks li{margin:.3em 0}
+.lks table{margin:6px 0;font-size:.82rem}
+.lks td.e{color:var(--muted);min-width:44px}
+.keter{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.keter span{font-size:.75rem;font-weight:800;padding:2px 9px;border-radius:999px;background:rgba(249,115,22,.14);color:#c2410c}
+@media(prefers-color-scheme:dark){.keter span{color:#fdba74}}
+html{-webkit-text-size-adjust:100%}
+img,canvas{max-width:100%}
+
+/* ---------- Ponsel ---------- */
+@media(max-width:600px){
+  .bar{padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+  .logo{font-size:1.05rem;margin-right:0}
+  main{padding:12px}
+  /* sasaran sentuh lebih besar */
+  input[type=range]{height:32px;margin:2px 0}
+  select{padding:10px;font-size:16px}
+  .btn{padding:11px 14px;min-height:44px}
+}
+@container (max-width:600px){
+  h1{font-size:1.45rem}h2{font-size:1.2rem}
+  .card{padding:12px;margin-bottom:12px;border-radius:14px}
+  .grid,.two{gap:12px}
+  canvas.sm{height:200px}
+  .opt{padding:12px 14px}
+  .modes{flex-direction:column}
+  .modes label{width:100%;padding:10px 12px}
+  .formula{font-size:.95rem;overflow-x:auto}
+  table{font-size:.75rem}
+  th,td{padding:5px 4px}
+}
+@media(max-width:360px){
+  .logo{font-size:1rem}
+  nav button{font-size:.62rem}
+  h1{font-size:1.3rem}
+}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="logo">Modul <span>Pemuaian</span></div>
+  <div class="ttl" id="ttl">Sampul</div>
+</div></header>
+<nav class="bookbar"><div class="bk-in">
+  <button class="bk-arrow" id="bkPrev" aria-label="Halaman sebelumnya">◀</button>
+  <div class="bk-mid">
+    <button class="bk-isi" data-t="isi">📑 Daftar Isi</button>
+    <span class="bk-num" id="bkNum"></span>
+  </div>
+  <button class="bk-arrow next" id="bkNext" aria-label="Halaman berikutnya">▶</button>
+</div></nav>
+
+<main>
+<!-- ============ SAMPUL ============ -->
+<section id="cover" class="panel active cover"><div class="cv-wrap">
+  <div class="cv-l">
+    <div class="cv-top">MODUL AJAR INTERAKTIF · FISIKA SMA</div>
+    <div class="cv-kicker">Suhu dan Kalor</div>
+    <h1 class="cv-title">PEMUAIAN</h1>
+    <p class="cv-sub">Mengapa rel kereta api diberi celah? Baca, simulasikan, dan buktikan sendiri.</p>
+    <div class="cv-auth"><span>Disusun oleh</span><b>Rustaman · Nama 2 · Nama 3 · Nama 4</b></div>
+  </div>
+  <div class="cv-r">
+    <canvas class="mini" data-a="hero"></canvas>
+    <div class="cv-id">
+      <label>Nama<input id="cvNama" autocomplete="name" placeholder="tulis namamu"></label>
+      <label>Kelas<input id="cvKelas" placeholder="mis. XI IPA 2"></label>
+    </div>
+    <button class="btn cv-open" data-t="isi">📖 Buka Modul</button>
+    <div class="cv-feat"><span>📖 Materi</span><span>🧪 4 Simulasi</span><span>✍️ Lembar Kerja</span><span>📝 Kuis</span></div>
+    <p class="cv-note">Nilai koefisien muai dibulatkan untuk keperluan belajar.</p>
+  </div>
+</div></section>
+
+<!-- ============ DAFTAR ISI ============ -->
+<section id="isi" class="panel">
+  <h2>📑 Daftar Isi</h2>
+  <div class="toclist" id="tocList"></div>
+  <p class="note">Ketuk judul untuk membuka halaman, atau balik halaman dengan tombol ◀ ▶ di bawah.</p>
+</section>
+
+<!-- ============ PENDAHULUAN ============ -->
+<section id="pendahuluan" class="panel">
+  <h2>🧭 Pendahuluan</h2>
+  <div class="card split">
+    <h3>Petunjuk penggunaan modul</h3>
+    <ol class="steps">
+      <li><b>Baca Materi Bacaan</b> halaman demi halaman. Perhatikan setiap gambar animasinya.</li>
+      <li><b>Lakukan simulasi</b> di setiap bab. Ikuti kotak "Yang harus kamu lakukan".</li>
+      <li><b>Kerjakan Lembar Kerja</b> di buku tulismu: catat data, hitung, buat grafik, dan simpulkan.</li>
+      <li><b>Baca Rangkuman</b>, lalu uji dirimu dengan <b>Kuis</b>.</li>
+    </ol>
+    <p class="note">Balik halaman dengan tombol ◀ ▶ di bagian bawah layar, atau buka 📑 Daftar Isi.</p>
+  </div>
+  <div class="card split">
+    <h3>Tujuan pembelajaran</h3>
+    <p class="muted" style="margin:.2em 0">Setelah mempelajari modul ini, kamu dapat:</p>
+    <ul class="tj">
+      <li>Menjelaskan pemuaian zat padat, cair, dan gas pada tingkat partikel.</li>
+      <li>Menghitung pertambahan panjang dengan ΔL = L₀·α·ΔT.</li>
+      <li>Menjelaskan anomali air dan cara kerja bimetal.</li>
+      <li>Menerapkan konsep pemuaian pada kehidupan sehari-hari.</li>
+      <li>Menjelaskan cara insinyur mengatasi dan memanfaatkan pemuaian pada konstruksi dan mesin.</li>
+    </ul>
+  </div>
+  <div class="card split">
+    <h3>Peta konsep</h3>
+    <div class="peta">
+      <div class="root">🔥 PEMUAIAN</div>
+      <div class="arr">↓ terjadi pada ↓</div>
+      <div class="row">
+        <div class="box"><b>Zat padat</b>muai panjang, luas, volume<br><i>ΔL = L₀·α·ΔT</i></div>
+        <div class="box"><b>Zat cair</b>muai volume, anomali air<br><i>ΔV = V₀·γ·ΔT</i></div>
+        <div class="box"><b>Gas</b>Charles, Gay-Lussac, Boyle<br><i>PV/T = konstan</i></div>
+      </div>
+      <div class="arr">↓ diterapkan pada ↓</div>
+      <div class="box wide"><b>Teknologi &amp; kehidupan</b>bimetal, termostat, rel, jembatan, pipa, kabel, mesin</div>
+    </div>
+  </div>
+  <div class="card split">
+    <h3>Siapkan sebelum belajar</h3>
+    <div class="cv-feat dark"><span>📓 Buku tulis</span><span>🖊️ Pulpen</span><span>📏 Penggaris</span><span>🟩 Kertas berpetak</span><span>🧮 Kalkulator</span></div>
+  </div>
+</section>
+
+<!-- ============ MATERI ============ -->
+<section id="materi" class="panel">
+  <h2>Materi: Fenomena Pemuaian</h2>
+
+  <div class="card read split" id="m-konsep">
+    <h3>1. Apa itu pemuaian?</h3>
+    <p><b>Pemuaian</b> adalah bertambahnya ukuran benda (panjang, luas, atau volume) karena suhunya naik. Kebalikannya, saat suhu turun benda <b>menyusut</b>.</p>
+    <p>Penjelasannya ada pada tingkat partikel. Semua zat tersusun dari partikel yang selalu bergerak atau bergetar. Saat dipanaskan, partikel mendapat energi sehingga getarannya makin kuat dan <b>jarak rata-rata antarpartikel bertambah</b>. Ukuran partikelnya sendiri tidak berubah; yang bertambah adalah ruang di antaranya.</p>
+    <canvas class="mini t" data-a="heatbox"></canvas>
+    <p class="figcap">Animasi: saat dipanaskan, partikel bergetar makin kuat dan jaraknya makin renggang. Garis putus-putus = ukuran saat dingin.</p>
+    <p>Karena massanya tetap sedangkan volumenya bertambah, <b>massa jenis benda turun</b> saat memuai (ρ = m/V).</p>
+    <p>Besar pemuaian bergantung pada tiga hal: <b>ukuran awal</b> benda, <b>besar kenaikan suhu</b> (ΔT), dan <b>jenis bahan</b> (koefisien muai). Untuk kenaikan suhu yang sama, urutannya: <b>gas &gt; cair &gt; padat</b>. Pada zat padat, partikel terikat kuat; pada gas, partikel hampir bebas.</p>
+    <canvas class="mini" data-a="states"></canvas>
+    <p class="figcap">Gerak partikel pada zat padat, cair, dan gas.</p>
+  </div>
+
+  <div class="card read split" id="m-padat">
+    <h3>2. Pemuaian zat padat</h3>
+    <p>Zat padat dapat memuai ke tiga arah. Kita memilih rumus sesuai bentuk bendanya:</p>
+    <div class="formula">
+      Muai panjang (kawat, batang, rel): ΔL = L₀ · α · ΔT<br>
+      Muai luas (pelat, kaca jendela): ΔA = A₀ · β · ΔT, dengan β = 2α<br>
+      Muai volume (kubus, bola, balok): ΔV = V₀ · γ · ΔT, dengan γ = 3α
+    </div>
+    <canvas class="mini m" data-a="dims"></canvas>
+    <p class="figcap">Animasi muai panjang, luas, dan volume. Pemuaian diperbesar agar terlihat; garis putus-putus = ukuran awal.</p>
+    <p>α adalah <b>koefisien muai panjang</b> (satuan /°C atau /K): pertambahan panjang tiap 1 meter bahan jika suhunya naik 1 °C. Makin besar α, makin mudah bahan memuai.</p>
+    <div class="tbl"><table>
+      <tr><th>Bahan</th><th>α (×10⁻⁵ /°C)</th><th>Keterangan</th></tr>
+      <tr><td>Aluminium</td><td>2,4</td><td>mudah memuai, ringan</td></tr>
+      <tr><td>Kuningan</td><td>1,9</td><td>lapisan bimetal</td></tr>
+      <tr><td>Tembaga</td><td>1,7</td><td>kabel, pipa</td></tr>
+      <tr><td>Besi / baja</td><td>1,2</td><td>rel, jembatan, tulangan beton</td></tr>
+      <tr><td>Beton</td><td>±1,0 – 1,2</td><td>hampir sama dengan baja</td></tr>
+      <tr><td>Kaca biasa</td><td>0,9</td><td>mudah retak bila dipanaskan tidak merata</td></tr>
+      <tr><td>Kaca borosilikat (Pyrex)</td><td>0,33</td><td>tahan perubahan suhu mendadak</td></tr>
+      <tr><td>Invar (paduan besi-nikel)</td><td>0,12</td><td>hampir tidak memuai</td></tr>
+    </table></div>
+    <h4>Contoh</h4>
+    <p>Pelat aluminium seluas 0,5 m² dipanaskan dari 20 °C ke 100 °C. β = 2 × 2,4×10⁻⁵ = 4,8×10⁻⁵ /°C, sehingga ΔA = 0,5 × 4,8×10⁻⁵ × 80 = 1,92×10⁻³ m² = <b>19,2 cm²</b>.</p>
+    <p class="note">Perubahannya kecil (milimeter), tetapi gaya yang muncul bila pemuaian <b>dihalangi</b> sangat besar. Baja yang ditahan agar tidak memuai saat suhunya naik 40 °C mengalami tegangan sekitar 100 juta Pa, cukup untuk membengkokkan rel.</p>
+    <button class="btn alt trybtn" data-t="padat">🔩 Coba di simulasi Zat Padat</button>
+  </div>
+
+  <div class="card read split" id="m-cair">
+    <h3>3. Pemuaian zat cair</h3>
+    <p>Zat cair tidak punya bentuk tetap, jadi yang dibahas hanya <b>muai volume</b>:</p>
+    <div class="formula">ΔV = V₀ · γ · ΔT</div>
+    <p>Koefisien muai volume zat cair jauh lebih besar daripada zat padat. Contohnya alkohol (γ ≈ 1,1×10⁻³ /°C), raksa (1,8×10⁻⁴), dan air (2,1×10⁻⁴ pada suhu kamar). Inilah alasan alkohol dan raksa dipakai pada termometer: kenaikan suhu yang kecil sudah membuat cairan naik dengan jelas di pipa kapiler yang sempit.</p>
+    <p><b>Pemuaian semu.</b> Saat cairan dipanaskan, wadahnya ikut memuai. Yang terlihat adalah selisihnya: γ<sub>semu</sub> ≈ γ<sub>cair</sub> − γ<sub>wadah</sub>. Karena γ wadah kecil, cairan tetap tampak naik, misalnya air yang tumpah dari panci yang terlalu penuh saat direbus.</p>
+    <h4>Anomali air</h4>
+    <p>Air berperilaku "aneh" antara 0 °C dan 4 °C: jika dipanaskan dari 0 °C ke 4 °C, air justru <b>menyusut</b>. Volumenya paling kecil (massa jenisnya paling besar, ±1000 kg/m³) pada <b>4 °C</b>. Di atas 4 °C air memuai seperti biasa. Saat membeku, volume air bertambah sekitar 9%.</p>
+    <div class="fig2">
+      <div><canvas class="mini m" data-a="pot"></canvas><p class="figcap">Panci yang terlalu penuh: air memuai lalu tumpah.</p></div>
+      <div><canvas class="mini m" data-a="lake"></canvas><p class="figcap">Danau di musim dingin: es di atas, air 4 °C di dasar.</p></div>
+    </div>
+    <ul>
+      <li>Danau membeku dari <b>permukaan</b>, sedangkan air 4 °C tenggelam ke dasar, sehingga ikan tetap hidup.</li>
+      <li>Pipa air dan botol berisi penuh bisa <b>pecah</b> saat airnya membeku.</li>
+      <li>Air yang membeku di celah batu dapat memecahkan batu (pelapukan mekanis).</li>
+    </ul>
+    <button class="btn alt trybtn" data-t="cair">🌡️ Coba di simulasi Zat Cair</button>
+  </div>
+
+  <div class="card read split" id="m-gas">
+    <h3>4. Pemuaian gas</h3>
+    <p>Gas paling mudah memuai. Uniknya, semua gas memiliki koefisien muai volume yang hampir sama, yaitu γ ≈ 1/273 /°C. Pada gas, volume (V), tekanan (P), dan suhu (T) saling memengaruhi, sehingga salah satunya biasanya dibuat tetap. Suhu <b>wajib</b> ditulis dalam kelvin: T(K) = T(°C) + 273.</p>
+    <div class="formula">
+      Hukum Charles (P tetap): V / T = konstan<br>
+      Hukum Gay-Lussac (V tetap): P / T = konstan<br>
+      Hukum Boyle (T tetap): P · V = konstan<br>
+      Gabungan: P₁V₁ / T₁ = P₂V₂ / T₂
+    </div>
+    <p>Menurut teori kinetik, partikel gas yang lebih panas bergerak lebih cepat. Jika wadahnya bisa membesar, gas memuai (Charles). Jika wadahnya kaku, partikel menumbuk dinding lebih sering dan lebih keras sehingga tekanannya naik (Gay-Lussac). Itulah sebabnya kaleng semprot tidak boleh dibakar dan tekanan ban naik setelah perjalanan jauh.</p>
+    <canvas class="mini m" data-a="balloon"></canvas>
+    <p class="figcap">Botol berbalon dicelupkan bergantian ke air panas dan air es: udara di dalamnya memuai dan menyusut.</p>
+    <button class="btn alt trybtn" data-t="gas">🎈 Coba di simulasi Gas</button>
+  </div>
+
+  <div class="card read split" id="m-bimetal">
+    <h3>5. Keping bimetal</h3>
+    <p>Bimetal adalah dua keping logam dengan koefisien muai berbeda yang dikeling atau dilas menjadi satu. Saat dipanaskan, logam dengan α lebih besar memuai lebih panjang, sehingga keping <b>melengkung ke arah logam yang α-nya lebih kecil</b>. Saat didinginkan di bawah suhu awal, keping melengkung ke arah sebaliknya.</p>
+    <canvas class="mini m" data-a="bistrip"></canvas>
+    <p class="figcap">Saat panas, keping melengkung menjauhi kontak sehingga lampu padam. Saat dingin, keping lurus kembali dan lampu menyala.</p>
+    <p>Lengkungan ini dapat dipakai untuk menggerakkan kontak listrik: menyambung atau memutus arus secara otomatis pada suhu tertentu.</p>
+    <ul>
+      <li>Termostat setrika, penanak nasi, oven, dan dispenser air panas.</li>
+      <li>Pemutus arus beban lebih (MCB dan pelindung motor): kabel yang terlalu panas membuat bimetal melengkung dan memutus listrik.</li>
+      <li>Termometer bimetal (jarum penunjuk pada oven dan cerobong).</li>
+      <li>Flasher lampu sein model lama: kedip karena bimetal memanas dan mendingin bergantian.</li>
+    </ul>
+    <button class="btn alt trybtn" data-t="bimetal">🔌 Coba di simulasi Bimetal</button>
+  </div>
+
+  <div class="card read split" id="m-teknik">
+    <h3>6. Aplikasi pemuaian di bidang teknik</h3>
+    <p>Bagi insinyur, pemuaian bisa menjadi masalah dan juga alat. Ada tiga strategi: <b>memberi ruang</b> agar bahan bebas memuai, <b>memanfaatkan</b> pemuaian untuk melakukan kerja, dan <b>memilih bahan</b> dengan koefisien muai yang cocok.</p>
+
+    <span class="grp">A. Memberi ruang untuk memuai</span>
+    
+      <div class="app"><canvas class="mini s" data-a="rail"></canvas><h4>🛤️ Rel kereta api</h4>
+        <p>Rel model lama dipasang dengan celah di sambungan agar tidak melengkung saat panas siang hari. Rel modern dilas menyambung ratusan meter, lalu dipasang pada "suhu netral" dan ditahan kuat oleh bantalan beton serta kerikil (balas) agar tegangannya aman.</p>
+        <div class="calc">Rel baja 25 m, suhu naik 40 °C: ΔL = 25 × 1,2×10⁻⁵ × 40 = <b>12 mm</b>.</div></div>
+      <div class="app"><canvas class="mini s" data-a="bridge"></canvas><h4>🌉 Sambungan ekspansi jembatan</h4>
+        <p>Ujung lantai jembatan diberi <i>expansion joint</i> (sambungan bergerigi seperti jari atau karet), dan tumpuannya memakai rol atau bantalan karet yang bisa bergeser.</p>
+        <div class="calc">Jembatan baja 100 m, ΔT = 50 °C: ΔL = 100 × 1,2×10⁻⁵ × 50 = <b>6 cm</b>.</div></div>
+      <div class="app"><canvas class="mini s" data-a="road"></canvas><h4>🛣️ Jalan beton &amp; gedung</h4>
+        <p>Jalan beton dan lantai luas dipotong menjadi segmen dengan <b>siar muai</b> (celah dilatasi) yang diisi aspal atau karet. Gedung panjang dibagi oleh dilatasi struktur agar tidak retak.</p></div>
+      <div class="app"><canvas class="mini s" data-a="pipe"></canvas><h4>🔧 Pipa uap dan minyak</h4>
+        <p>Pipa panjang yang dialiri fluida panas dibuat berbelok membentuk <b>loop U</b> atau diberi sambungan <b>bellows</b> (lipatan seperti akordeon) yang menyerap pertambahan panjang.</p>
+        <div class="calc">Pipa baja 50 m dari 20 °C ke 180 °C: ΔL = 50 × 1,2×10⁻⁵ × 160 ≈ <b>9,6 cm</b>.</div></div>
+      <div class="app"><canvas class="mini s" data-a="cable"></canvas><h4>⚡ Kabel listrik transmisi</h4>
+        <p>Kabel dipasang agak <b>kendur</b>. Saat dingin, kabel menyusut; jika dipasang tegang, kabel bisa putus atau menarik tiang. Saat siang terik atau arus besar, kabel makin melendut, sehingga jarak aman ke tanah harus diperhitungkan.</p>
+        <div class="calc">Kabel aluminium 300 m, ΔT = 40 °C: ΔL = 300 × 2,4×10⁻⁵ × 40 ≈ <b>29 cm</b>.</div></div>
+      <div class="app"><canvas class="mini s" data-a="tank"></canvas><h4>⛽ Tangki dan wadah cairan</h4>
+        <p>Tangki BBM, botol minuman, dan radiator tidak diisi penuh. Ruang kosong di atas cairan menampung pemuaian; radiator mobil juga punya tabung cadangan (reservoir) untuk air yang memuai.</p></div>
+
+    <span class="grp">B. Memanfaatkan pemuaian</span>
+    
+      <div class="app"><canvas class="mini s" data-a="shrink"></canvas><h4>⚙️ Pemasangan susut (<i>shrink fit</i>)</h4>
+        <p>Roda kereta, bantalan (bearing), atau roda gigi dipasang ke poros dengan cara memanaskan cincinnya agar lubangnya membesar. Setelah dingin, cincin menyusut dan mencengkeram poros sangat kuat tanpa baut. Cara lain: poros didinginkan dengan nitrogen cair agar menyusut.</p>
+        <div class="calc">Lubang baja Ø 100 mm perlu membesar 0,1 mm: ΔT = 0,1 / (100 × 1,2×10⁻⁵) ≈ <b>83 °C</b>.</div></div>
+      <div class="app"><canvas class="mini s" data-a="rivet"></canvas><h4>🔩 Paku keling panas</h4>
+        <p>Pada jembatan dan kapal baja lama, paku keling dipasang dalam keadaan membara. Saat dingin, paku menyusut dan menjepit pelat-pelat baja dengan rapat.</p></div>
+      <div class="app"><canvas class="mini s" data-a="thermo"></canvas><h4>🌡️ Termostat &amp; pengaman listrik</h4>
+        <p>Keping bimetal memutus dan menyambung arus secara otomatis pada setrika, penanak nasi, dan MCB, sehingga suhu terjaga dan kabel tidak terbakar.</p></div>
+      <div class="app"><canvas class="mini s" data-a="engine"></canvas><h4>🚗 Mesin kalor</h4>
+        <p>Pada mesin mobil, gas hasil pembakaran memuai dengan cepat dan mendorong piston. Turbin uap dan turbin gas di pembangkit listrik juga memanfaatkan gas yang memuai.</p></div>
+      <div class="app"><canvas class="mini s" data-a="hotair"></canvas><h4>🎈 Balon udara panas</h4>
+        <p>Udara di dalam balon dipanaskan sehingga memuai dan massa jenisnya turun. Balon menjadi lebih ringan dari udara di sekitarnya dan terangkat.</p></div>
+      <div class="app"><canvas class="mini s" data-a="tmeter"></canvas><h4>📏 Termometer</h4>
+        <p>Termometer cair memanfaatkan muai volume alkohol atau raksa; termometer bimetal memanfaatkan lengkungan keping logam.</p></div>
+
+    <span class="grp">C. Memilih bahan yang cocok</span>
+    
+      <div class="app"><canvas class="mini s" data-a="beton"></canvas><h4>🏗️ Beton bertulang</h4>
+        <p>Baja dan beton dapat disatukan karena koefisien muainya hampir sama (±1,2×10⁻⁵ dan ±1,0×10⁻⁵ /°C). Keduanya memuai bersama, sehingga besi tidak lepas dan beton tidak retak saat suhu berubah.</p></div>
+      <div class="app"><canvas class="mini s" data-a="glass"></canvas><h4>🧪 Kaca tahan panas</h4>
+        <p>Kaca biasa retak bila satu bagian panas dan bagian lain dingin. Kaca borosilikat (α sekitar 3 kali lebih kecil) dipakai untuk peralatan laboratorium dan wadah oven.</p></div>
+      <div class="app"><canvas class="mini s" data-a="invar"></canvas><h4>📐 Alat ukur presisi</h4>
+        <p>Paduan Invar hampir tidak memuai, sehingga dipakai untuk pita ukur survei, bandul jam, dan komponen instrumen yang ukurannya harus tetap.</p></div>
+      <div class="app"><canvas class="mini s" data-a="bulb"></canvas><h4>💡 Sambungan logam-kaca</h4>
+        <p>Kawat yang menembus kaca bola lampu dipilih yang α-nya mendekati kaca, agar segel tidak retak saat lampu panas. Prinsip yang sama berlaku untuk tambalan gigi yang α-nya mendekati gigi.</p></div>
+      <div class="app"><canvas class="mini s" data-a="clear"></canvas><h4>🏎️ Celah piston mesin</h4>
+        <p>Piston aluminium memuai lebih besar daripada silinder besi. Insinyur memberi celah dan ring piston agar mesin tidak macet ketika panas.</p></div>
+
+    <h4 style="margin-top:20px">Siap mencoba?</h4>
+    <p class="muted" style="margin:.2em 0 .6em">Sekarang buktikan konsep di atas lewat simulasi.</p>
+    <div><button class="btn" data-t="padat">🔩 Zat Padat</button><button class="btn" data-t="cair">🌡️ Zat Cair</button><button class="btn" data-t="gas">🎈 Gas</button><button class="btn" data-t="bimetal">🔌 Bimetal</button></div>
+  </div></section>
+
+<!-- ============ ZAT PADAT ============ -->
+<section id="padat" class="panel">
+  <h2>Pemuaian Zat Padat</h2>
+  <p class="readlink">Belum membaca konsepnya? <button class="lnk" data-t="materi" data-s="m-padat">📖 Baca materi zat padat</button></p>
+  <details class="card misi" open>
+    <summary><b>📋 Yang harus kamu lakukan</b> <span class="pill off-p" id="mProg">0/5</span></summary>
+    <ol id="mList">
+      <li data-m="1" class="man"><b>Siapkan buku tulis.</b> Tulis judul, tanggal, dan tujuan percobaan. <span class="muted">(Lembar Kerja, pembuka)</span></li>
+      <li data-m="2"><b>Percobaan 1: pengaruh suhu.</b> Bahan Tembaga, L₀ = 2,0 m. Tekan "+ Catat data" pada T = 60, 100, 150, 200, dan 300 °C, lalu salin ΔL ke tabel di bukumu. <span class="muted">(Lembar Kerja A)</span> <b id="m2c"></b></li>
+      <li data-m="3"><b>Percobaan 2: pengaruh jenis bahan.</b> L₀ = 2,0 m, T = 200 °C. Catat data untuk keempat bahan dan salin ke bukumu. <span class="muted">(Lembar Kerja C)</span> <b id="m3c"></b></li>
+      <li data-m="4" class="man"><b>Hitung dan buat grafik.</b> Hitung ΔL dengan rumus, hitung ΔL/ΔT, lalu gambar grafik ΔL terhadap ΔT dan tentukan α. <span class="muted">(Lembar Kerja A3–A5 dan B)</span></li>
+      <li data-m="5" class="man"><b>Analisis dan kesimpulan.</b> Jawab tiga pertanyaan analisis dan tulis kesimpulan. <span class="muted">(Lembar Kerja D dan E)</span></li>
+    </ol>
+    <div class="note">Langkah 2 dan 3 tercentang otomatis dari tabel data. Langkah 1, 4, dan 5 dikerjakan di buku tulis: <b>ketuk langkahnya</b> jika sudah selesai. <button class="lnk" id="toLks">Lihat Lembar Kerja ↓</button></div>
+  </details>
+  <div class="grid">
+    <div class="card sim"><canvas id="cvP"></canvas>
+      <div class="note">Pertambahan panjang diperbesar ×50 agar terlihat. Penggaris memakai skala asli.</div>
+    </div>
+    <div class="card ctl">
+      <label>Bahan</label>
+      <select id="pMat"><option value="alu">Aluminium (α = 2,4×10⁻⁵)</option><option value="cu" selected>Tembaga (α = 1,7×10⁻⁵)</option><option value="fe">Besi (α = 1,2×10⁻⁵)</option><option value="gl">Kaca (α = 0,9×10⁻⁵)</option></select>
+      <label>Panjang awal L₀ <span class="val"><span id="pLv">2,0</span> m</span></label>
+      <input type="range" id="pLen" min="0.5" max="3" step="0.1" value="2">
+      <label>Suhu akhir T <span class="val"><span id="pTv">20</span> °C</span></label>
+      <input type="range" id="pTemp" min="-50" max="500" step="5" value="20">
+      <div class="note">Suhu awal batang = 20 °C. Di bawah 20 °C batang menyusut.</div>
+      <div class="btnrow"><button class="btn" id="pRec">+ Catat data</button><button class="btn alt" id="pReset">Reset</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Data &amp; rumus</h3>
+    <div class="formula" id="pFormula"></div>
+    <p class="note" id="pCoef"></p>
+  </div>
+  <div class="card">
+    <h3>Tabel data percobaan</h3>
+    <button class="btn alt" id="pCsv">Unduh CSV</button><button class="btn alt" id="pClr">Hapus</button>
+    <div id="pTable" class="tbl datatbl" style="margin-top:8px"></div>
+  </div>
+  <div class="card lks split" id="lksPadat">
+    <h3>✍️ Lembar Kerja: kerjakan di buku tulis</h3>
+    <div class="keter"><span>Mengamati</span><span>Mencatat data</span><span>Menghitung</span><span>Membuat grafik</span><span>Menganalisis</span><span>Menyimpulkan</span></div>
+    <p>Tulis judul <b>"Percobaan Pemuaian Zat Padat"</b>, tanggal, dan tujuan: <i>menyelidiki pengaruh kenaikan suhu dan jenis bahan terhadap pertambahan panjang batang</i>.</p>
+
+    <h4>A. Percobaan 1: pengaruh suhu</h4>
+    <ol>
+      <li>Atur simulasi: bahan <b>Tembaga</b>, L₀ = <b>2,0 m</b>.</li>
+      <li>Salin tabel ini ke buku. Geser suhu T sesuai tabel, tekan <b>"+ Catat data"</b>, lalu salin ΔL dari tabel data simulasi ke kolom "ΔL simulasi".</li>
+    </ol>
+    <div class="tbl"><table>
+      <tr><th>No</th><th>T (°C)</th><th>ΔT (°C)</th><th>ΔL simulasi (mm)</th><th>ΔL hitungan (mm)</th><th>ΔL / ΔT</th></tr>
+      <tr><td>1</td><td>60</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>2</td><td>100</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>3</td><td>150</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>4</td><td>200</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>5</td><td>300</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+    </table></div>
+    <ol start="3">
+      <li>Hitung sendiri kolom "ΔL hitungan" dengan ΔL = L₀ · α · ΔT. Tulis <b>diketahui, ditanya, jawab</b> lengkap untuk baris 1 dan 5. Ubah hasil meter ke milimeter (× 1000).</li>
+      <li>Bandingkan hasil hitunganmu dengan hasil simulasi. Jika berbeda, cari letak kesalahanmu.</li>
+      <li>Hitung ΔL / ΔT untuk setiap baris. Apa yang kamu perhatikan?</li>
+    </ol>
+
+    <h4>B. Membuat grafik</h4>
+    <ol>
+      <li>Di kertas berpetak, gambar grafik dengan ΔT pada sumbu mendatar dan ΔL (mm) pada sumbu tegak. Beri judul, nama sumbu, dan satuan.</li>
+      <li>Tandai kelima titik data, lalu tarik garis yang melewati titik-titik tersebut. Bagaimana bentuk grafiknya, dan apakah garisnya melalui titik (0, 0)?</li>
+      <li>Hitung kemiringan garis (ΔL dibagi ΔT). Karena kemiringan = L₀ · α, tentukan nilai α tembaga dari grafikmu, lalu bandingkan dengan nilai pada pilihan bahan.</li>
+    </ol>
+
+    <h4>C. Percobaan 2: pengaruh jenis bahan</h4>
+    <ol>
+      <li>Atur L₀ = <b>2,0 m</b> dan T = <b>200 °C</b>. Ganti bahan satu per satu dan tekan <b>"+ Catat data"</b> untuk setiap bahan. Salin hasilnya ke tabel di bukumu: Bahan | α | ΔL (mm).</li>
+      <li>Urutkan bahan dari ΔL terbesar ke terkecil. Bandingkan urutan itu dengan urutan nilai α-nya.</li>
+    </ol>
+
+    <h4>D. Analisis</h4>
+    <ol>
+      <li>Jika ΔT dijadikan dua kali lipat, berapa kali ΔL berubah? Buktikan dengan dua baris data dari tabelmu.</li>
+      <li>Apa yang terjadi pada batang jika T diatur ke −30 °C? Hitung ΔL-nya dan jelaskan arti tanda negatif.</li>
+      <li>Kabel listrik antartiang sepanjang 50 m terbuat dari aluminium. Hitung pertambahan panjangnya jika suhu naik dari 20 °C ke 45 °C, lalu jelaskan mengapa kabel dipasang kendur.</li>
+    </ol>
+
+    <h4>E. Kesimpulan</h4>
+    <p>Tulis 2 sampai 3 kalimat kesimpulan yang menjawab tujuan percobaan. Gunakan kata <i>sebanding</i> dan <i>koefisien muai panjang</i>.</p>
+  </div>
+</section>
+
+<!-- ============ ZAT CAIR ============ -->
+<section id="cair" class="panel">
+  <h2>Pemuaian Zat Cair</h2>
+  <p class="readlink">Belum membaca konsepnya? <button class="lnk" data-t="materi" data-s="m-cair">📖 Baca materi zat cair &amp; anomali air</button></p>
+  <div class="grid">
+    <div class="card sim"><canvas id="cvC"></canvas>
+      <div class="note">Tiga termometer berisi cairan pada 20 °C. Tinggi cairan diperbesar agar perbedaannya terlihat.</div>
+    </div>
+    <div class="card ctl">
+      <label>Suhu <span class="val"><span id="cTv">20</span> °C</span></label>
+      <input type="range" id="cTemp" min="0" max="80" step="1" value="20">
+    </div>
+  </div>
+  <div class="card"><h3>Data (V₀ = 100 mL)</h3><div id="cInfo" class="tbl"></div></div>
+
+  <h2>Anomali Air (0 - 10 °C)</h2>
+  <div class="card">
+    <label>Suhu permukaan danau <span class="val"><span id="wTv">8,0</span> °C</span></label>
+    <input type="range" id="wTemp" min="0" max="10" step="0.1" value="8">
+    <div class="two" style="margin-top:10px">
+      <div><canvas id="cvW1" class="sm"></canvas></div>
+      <div><canvas id="cvW2" class="sm"></canvas></div>
+    </div>
+    <p class="note" id="wInfo"></p>
+  </div>
+
+  <div class="card lks split">
+    <h3>✍️ Lembar Kerja: kerjakan di buku tulis</h3>
+    <div class="keter"><span>Mengamati</span><span>Mencatat data</span><span>Menghitung</span><span>Membuat grafik</span><span>Menjelaskan</span></div>
+    <p>Tulis judul <b>"Percobaan Pemuaian Zat Cair dan Anomali Air"</b>, tanggal, dan tujuan: <i>membandingkan pemuaian berbagai cairan dan mengamati perilaku air antara 0 °C dan 10 °C</i>.</p>
+
+    <h4>A. Percobaan 1: membandingkan tiga cairan</h4>
+    <ol>
+      <li>Salin tabel ini. Geser suhu sesuai tabel, lalu catat ΔV setiap cairan dari tabel data simulasi (V₀ = 100 mL).</li>
+    </ol>
+    <div class="tbl"><table>
+      <tr><th>T (°C)</th><th>ΔT (°C)</th><th>ΔV alkohol (mL)</th><th>ΔV raksa (mL)</th><th>ΔV air (mL)</th></tr>
+      <tr><td>30</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>40</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>60</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>80</td><td class="e">…</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+    </table></div>
+    <ol start="2">
+      <li>Buktikan dengan perhitungan (diketahui, ditanya, jawab) ΔV alkohol pada 60 °C menggunakan ΔV = V₀ · γ · ΔT.</li>
+      <li>Gambar ketiga garis ΔV terhadap ΔT dalam <b>satu grafik</b>. Beri warna atau tanda berbeda untuk setiap cairan.</li>
+      <li>Berapa kali lebih besar pemuaian alkohol dibandingkan raksa? Hitung dari data pada 80 °C.</li>
+    </ol>
+
+    <h4>B. Percobaan 2: anomali air</h4>
+    <ol>
+      <li>Geser suhu permukaan danau ke 0, 2, 4, 6, 8, dan 10 °C. Untuk setiap suhu, baca volume relatif (ppm) dari grafik dan catat dalam tabel: T (°C) | volume relatif (ppm).</li>
+      <li>Sketsa grafik volume terhadap suhu di bukumu. Tandai titik volume paling kecil.</li>
+      <li>Gambar penampang danau saat permukaannya 0 °C. Tulis suhu setiap lapisan dan letak es.</li>
+    </ol>
+
+    <h4>C. Analisis</h4>
+    <ol>
+      <li>Mengapa alkohol lebih sering dipakai pada termometer daripada air?</li>
+      <li>Jelaskan dengan kata-katamu sendiri mengapa ikan tetap hidup di dasar danau saat permukaannya membeku.</li>
+      <li>Sebuah tangki berisi 1000 L bensin (γ = 9,5×10⁻⁴ /°C) pada 20 °C. Berapa liter bensin tumpah jika suhunya naik menjadi 40 °C dan tangki diisi penuh? (Abaikan pemuaian tangki.)</li>
+    </ol>
+
+    <h4>D. Kesimpulan</h4>
+    <p>Tulis kesimpulan tentang (1) cairan yang paling mudah memuai dan (2) suhu saat air memiliki volume paling kecil.</p>
+  </div>
+</section>
+
+<!-- ============ GAS ============ -->
+<section id="gas" class="panel">
+  <h2>Pemuaian Gas</h2>
+  <p class="readlink">Belum membaca konsepnya? <button class="lnk" data-t="materi" data-s="m-gas">📖 Baca materi gas</button></p>
+  <div class="grid">
+    <div class="card sim"><canvas id="cvGas"></canvas>
+      <div class="note">Tumbukan partikel ke piston per detik: <b id="gHits">0</b>. Makin sering dan makin keras, makin besar tekanannya.</div>
+    </div>
+      <div class="card ctl">
+        <label>Proses</label>
+        <div class="modes">
+          <label><input type="radio" name="gm" value="charles" checked> Charles (P tetap)</label>
+          <label><input type="radio" name="gm" value="gay"> Gay-Lussac (V tetap)</label>
+          <label><input type="radio" name="gm" value="boyle"> Boyle (T tetap)</label>
+        </div>
+        <div id="gTw"><label>Suhu T <span class="val"><span id="gTv">300</span> K</span></label>
+        <input type="range" id="gT" min="200" max="600" step="5" value="300"></div>
+        <div id="gVw" style="display:none"><label>Volume V <span class="val"><span id="gVv">2,0</span> L</span></label>
+        <input type="range" id="gV" min="1" max="4" step="0.1" value="2"></div>
+      </div>
+  </div>
+  <div class="two">
+    <div class="card"><h3>Grafik</h3><canvas id="cvGG" class="sm"></canvas></div>
+    <div class="card"><h3>Data &amp; rumus</h3><div class="formula" id="gInfo"></div></div>
+  </div>
+
+  <div class="card lks split">
+    <h3>✍️ Lembar Kerja: kerjakan di buku tulis</h3>
+    <div class="keter"><span>Mengamati</span><span>Mencatat data</span><span>Menghitung</span><span>Membuat grafik</span><span>Memprediksi</span></div>
+    <p>Tulis judul <b>"Percobaan Hukum-Hukum Gas"</b>, tanggal, dan tujuan: <i>menyelidiki hubungan antara volume, tekanan, dan suhu gas</i>.</p>
+
+    <h4>A. Hukum Charles (P tetap)</h4>
+    <ol>
+      <li>Pilih proses <b>Charles</b>. Atur suhu dan catat volume dalam tabel berikut.</li>
+    </ol>
+    <div class="tbl"><table>
+      <tr><th>T (K)</th><th>T (°C)</th><th>V (L)</th><th>V / T</th></tr>
+      <tr><td>200</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>300</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>400</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>500</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>600</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+    </table></div>
+    <ol start="2">
+      <li>Hitung V / T untuk setiap baris. Apa yang kamu temukan?</li>
+      <li>Gambar grafik V terhadap T (K). Perpanjang garisnya ke kiri dengan garis putus-putus sampai V = 0. Pada suhu berapa garis itu memotong sumbu T? Apa nama suhu tersebut?</li>
+    </ol>
+
+    <h4>B. Hukum Gay-Lussac (V tetap)</h4>
+    <ol>
+      <li>Pilih proses <b>Gay-Lussac</b>. Catat tekanan P pada T = 200, 300, 400, 500, dan 600 K, lalu hitung P / T.</li>
+      <li>Amati jumlah tumbukan per detik pada suhu 200 K dan 600 K. Jelaskan hubungan tumbukan partikel dengan tekanan.</li>
+    </ol>
+
+    <h4>C. Hukum Boyle (T tetap)</h4>
+    <ol>
+      <li>Pilih proses <b>Boyle</b>. Catat tekanan P pada V = 1,0; 1,5; 2,0; 3,0; dan 4,0 L, lalu hitung P × V.</li>
+      <li>Gambar grafik P terhadap V. Bagaimana bentuknya dibandingkan grafik Charles?</li>
+    </ol>
+
+    <h4>D. Analisis</h4>
+    <ol>
+      <li>Ban mobil bertekanan 2,0 atm pada 27 °C. Setelah perjalanan jauh, suhunya naik menjadi 57 °C. Jika volumenya dianggap tetap, hitung tekanan barunya.</li>
+      <li>Mengapa suhu pada rumus gas harus ditulis dalam kelvin, bukan °C? Coba hitung V / T memakai °C dan lihat hasilnya.</li>
+      <li>Mengapa kaleng semprot (aerosol) tidak boleh dibuang ke api?</li>
+    </ol>
+
+    <h4>E. Kesimpulan</h4>
+    <p>Tulis satu kalimat kesimpulan untuk setiap hukum (Charles, Gay-Lussac, Boyle) berdasarkan datamu.</p>
+  </div>
+</section>
+
+<!-- ============ BIMETAL ============ -->
+<section id="bimetal" class="panel">
+  <h2>Bimetal &amp; Termostat</h2>
+  <p class="readlink">Belum membaca konsepnya? <button class="lnk" data-t="materi" data-s="m-bimetal">📖 Baca materi bimetal</button> · <button class="lnk" data-t="materi" data-s="m-teknik">aplikasi teknik</button></p>
+  <div class="grid">
+    <div class="card sim"><canvas id="cvB"></canvas>
+      <div class="note">Atas: kuningan (α = 1,9×10⁻⁵). Bawah: besi (α = 1,2×10⁻⁵). Kuningan memuai lebih panjang, keping melengkung ke bawah dan memutus rangkaian.</div>
+    </div>
+    <div class="card ctl">
+      <label>Suhu keping <span class="val"><span id="bTv">20</span> °C</span></label>
+      <input type="range" id="bT" min="20" max="200" step="1" value="20">
+      <label>Pengaturan termostat <span class="val"><span id="bTsv">100</span> °C</span></label>
+      <input type="range" id="bTs" min="60" max="150" step="5" value="100">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="bAuto"> Mode otomatis (setrika menyala sendiri)</label>
+    </div>
+  </div>
+  <div class="card"><h3>Status</h3><div id="bInfo"></div></div>
+
+  <div class="card lks split">
+    <h3>✍️ Lembar Kerja: kerjakan di buku tulis</h3>
+    <div class="keter"><span>Mengamati</span><span>Menggambar</span><span>Mencatat data</span><span>Menganalisis</span><span>Merancang</span></div>
+    <p>Tulis judul <b>"Percobaan Keping Bimetal dan Termostat"</b>, tanggal, dan tujuan: <i>menjelaskan cara kerja bimetal sebagai saklar otomatis</i>.</p>
+
+    <h4>A. Mengamati dan menggambar</h4>
+    <ol>
+      <li>Atur suhu keping 20 °C. Gambar rangkaian (baterai, pemanas, keping bimetal) di bukumu. Beri label kuningan, besi, dan arah arus.</li>
+      <li>Naikkan suhu sampai rangkaian terputus. Gambar lagi keping dalam keadaan melengkung, lalu beri tanda panah ke arah lengkungan.</li>
+    </ol>
+
+    <h4>B. Percobaan termostat</h4>
+    <ol>
+      <li>Nyalakan <b>Mode otomatis</b>. Untuk setiap pengaturan termostat, amati beberapa kali naik-turun suhu, lalu catat dalam tabel berikut.</li>
+    </ol>
+    <div class="tbl"><table>
+      <tr><th>Pengaturan (°C)</th><th>Suhu saat pemanas MATI (°C)</th><th>Suhu saat pemanas MENYALA lagi (°C)</th><th>Rentang suhu</th></tr>
+      <tr><td>80</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>100</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+      <tr><td>130</td><td class="e">…</td><td class="e">…</td><td class="e">…</td></tr>
+    </table></div>
+    <ol start="2">
+      <li>Sketsa grafik suhu terhadap waktu selama mode otomatis berjalan. Tandai saat pemanas menyala dan mati.</li>
+    </ol>
+
+    <h4>C. Analisis</h4>
+    <ol>
+      <li>Mengapa keping melengkung ke arah besi, bukan ke arah kuningan? Gunakan nilai α dalam penjelasanmu.</li>
+      <li>Apa yang terjadi jika posisi kuningan dan besi ditukar? Gambar dan jelaskan apakah termostat masih bekerja.</li>
+      <li>Mengapa keping bimetal tidak dibuat dari dua logam yang sama?</li>
+      <li>Sebutkan tiga alat di rumah atau sekolahmu yang memakai bimetal, beserta fungsinya.</li>
+    </ol>
+
+    <h4>D. Merancang</h4>
+    <p>Rancang <b>alarm kebakaran sederhana</b> yang memakai keping bimetal: bel berbunyi saat suhu ruangan terlalu tinggi. Gambar rangkaiannya dan jelaskan cara kerjanya dalam 3 sampai 4 kalimat.</p>
+  </div>
+</section>
+
+<!-- ============ RANGKUMAN ============ -->
+<section id="rangkuman" class="panel">
+  <h2>🗒️ Rangkuman</h2>
+  <div class="card split">
+    <h3>Hal penting yang perlu diingat</h3>
+    <ul class="tj">
+      <li>Benda memuai saat dipanaskan karena <b>jarak antarpartikelnya bertambah</b>; massa tetap, massa jenis turun.</li>
+      <li>Untuk kenaikan suhu yang sama: <b>gas &gt; cair &gt; padat</b>.</li>
+      <li>Besar pemuaian sebanding dengan <b>ukuran awal</b> dan <b>kenaikan suhu</b>, serta bergantung pada <b>jenis bahan</b>.</li>
+      <li>Air memiliki volume terkecil pada <b>4 °C</b> (anomali air).</li>
+      <li>Keping bimetal melengkung ke arah logam yang <b>α-nya lebih kecil</b>.</li>
+      <li>Insinyur <b>memberi ruang</b>, <b>memanfaatkan</b>, atau <b>memilih bahan</b> untuk mengatur pemuaian.</li>
+    </ul>
+  </div>
+  <div class="card split">
+    <h3>Rumus penting</h3>
+    <div class="tbl"><table>
+      <tr><th>Pemuaian</th><th>Rumus</th><th>Keterangan</th></tr>
+      <tr><td>Panjang</td><td>ΔL = L₀ · α · ΔT</td><td>α = koefisien muai panjang</td></tr>
+      <tr><td>Luas</td><td>ΔA = A₀ · β · ΔT</td><td>β = 2α</td></tr>
+      <tr><td>Volume (padat/cair)</td><td>ΔV = V₀ · γ · ΔT</td><td>γ = 3α (zat padat)</td></tr>
+      <tr><td>Gas, P tetap</td><td>V₁/T₁ = V₂/T₂</td><td>Hukum Charles, T dalam kelvin</td></tr>
+      <tr><td>Gas, V tetap</td><td>P₁/T₁ = P₂/T₂</td><td>Hukum Gay-Lussac</td></tr>
+      <tr><td>Gas, T tetap</td><td>P₁V₁ = P₂V₂</td><td>Hukum Boyle</td></tr>
+    </table></div>
+  </div>
+  <div class="card split">
+    <h3>Glosarium</h3>
+    <p class="gl"><b>Pemuaian</b> Bertambahnya ukuran benda karena kenaikan suhu.</p>
+    <p class="gl"><b>Koefisien muai</b> Bilangan yang menunjukkan seberapa mudah suatu bahan memuai (α, β, γ).</p>
+    <p class="gl"><b>Anomali air</b> Sifat air yang menyusut saat dipanaskan dari 0 °C sampai 4 °C.</p>
+    <p class="gl"><b>Bimetal</b> Dua keping logam dengan koefisien muai berbeda yang disatukan.</p>
+    <p class="gl"><b>Termostat</b> Alat pengatur suhu otomatis, sering memakai bimetal.</p>
+    <p class="gl"><b>Kelvin (K)</b> Satuan suhu mutlak; T(K) = T(°C) + 273.</p>
+    <p class="gl"><b>Siar muai</b> Celah yang sengaja dibuat agar bahan bebas memuai.</p>
+    <p class="gl"><b>Shrink fit</b> Teknik memasang cincin ke poros dengan memanaskan lalu mendinginkannya.</p>
+  </div>
+  <div class="card lks split">
+    <h3>✍️ Refleksi: tulis di buku tulis</h3>
+    <ol>
+      <li>Hal baru apa yang kamu pelajari dari modul ini?</li>
+      <li>Bagian mana yang masih sulit? Apa rencanamu untuk memahaminya?</li>
+      <li>Sebutkan satu contoh pemuaian yang kamu temui di rumah atau sekolah.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ KUIS ============ -->
+<section id="kuis" class="panel">
+  <h2>📝 Kuis Pemuaian</h2>
+  <div class="card" id="quiz"></div>
+  <div class="card endcard">
+    <div style="font-size:2.4rem">🎓</div>
+    <h3>Selamat, kamu sudah sampai di akhir modul!</h3>
+    <p class="muted">Pastikan lembar kerja dan refleksi di buku tulismu sudah lengkap.</p>
+    <button class="btn" data-t="cover">📘 Tutup modul</button><button class="btn alt" data-t="isi">📑 Daftar Isi</button>
+  </div>
+</section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const fmt=(n,d=2)=>Number(n).toFixed(d).replace('.',',');
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(cv){
+  const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;
+  const W=Math.max(1,Math.round(r.width*d)),H=Math.max(1,Math.round(r.height*d));
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+  const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);return{c,w:r.width,h:r.height};
+}
+const heat=(t,a,b)=>{const x=Math.max(0,Math.min(1,(t-a)/(b-a)));return `hsl(${Math.round(215-215*x)} 85% 55%)`};
+function flame(c,x,y,h){
+  c.fillStyle='#f97316';c.beginPath();c.moveTo(x-10,y);c.quadraticCurveTo(x-12,y-h*.5,x,y-h);c.quadraticCurveTo(x+12,y-h*.5,x+10,y);c.fill();
+  c.fillStyle='#fde047';c.beginPath();c.moveTo(x-5,y);c.quadraticCurveTo(x-6,y-h*.3,x,y-h*.6);c.quadraticCurveTo(x+6,y-h*.3,x+5,y);c.fill();
+}
+function graph(c,w,h,o){
+  const m={l:48,r:14,t:14,b:38},iw=w-m.l-m.r,ih=h-m.t-m.b,ink=cssv('--ink'),mut=cssv('--muted'),line=cssv('--line');
+  const X=x=>m.l+(x-o.xmin)/(o.xmax-o.xmin)*iw, Y=y=>m.t+ih-(y-o.ymin)/(o.ymax-o.ymin)*ih;
+  c.font='11px system-ui';c.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const xv=o.xmin+(o.xmax-o.xmin)*i/4,yv=o.ymin+(o.ymax-o.ymin)*i/4;
+    c.strokeStyle=line;c.beginPath();c.moveTo(X(xv),m.t);c.lineTo(X(xv),m.t+ih);c.moveTo(m.l,Y(yv));c.lineTo(m.l+iw,Y(yv));c.stroke();
+    c.fillStyle=mut;c.textAlign='center';c.fillText(fmt(xv,o.xd||0),X(xv),m.t+ih+14);
+    c.textAlign='right';c.fillText(fmt(yv,o.yd||0),m.l-5,Y(yv)+4);
+  }
+  c.strokeStyle=ink;c.beginPath();c.moveTo(m.l,m.t);c.lineTo(m.l,m.t+ih);c.lineTo(m.l+iw,m.t+ih);c.stroke();
+  c.fillStyle=ink;c.textAlign='center';c.font='bold 12px system-ui';c.fillText(o.xl,m.l+iw/2,h-5);
+  c.save();c.translate(12,m.t+ih/2);c.rotate(-Math.PI/2);c.fillText(o.yl,0,0);c.restore();
+  c.strokeStyle='#2563eb';c.lineWidth=2.5;c.beginPath();
+  for(let i=0;i<=120;i++){const x=o.xmin+(o.xmax-o.xmin)*i/120,y=o.fn(x);i?c.lineTo(X(x),Y(y)):c.moveTo(X(x),Y(y))}
+  c.stroke();
+  c.fillStyle='#f97316';c.beginPath();c.arc(X(o.px),Y(o.py),6,0,7);c.fill();
+  c.strokeStyle='#f97316';c.setLineDash([4,4]);c.lineWidth=1;c.beginPath();c.moveTo(X(o.px),Y(o.py));c.lineTo(X(o.px),m.t+ih);c.moveTo(X(o.px),Y(o.py));c.lineTo(m.l,Y(o.py));c.stroke();c.setLineDash([]);
+}
+
+/* ---------- Navigasi ---------- */
+/* ---------- Buku: halaman & efek balik halaman ---------- */
+const PAGES=[
+  {id:'cover',t:'Sampul',ic:'📘'},
+  {id:'isi',t:'Daftar Isi',ic:'📑'},
+  {id:'pendahuluan',t:'Pendahuluan',ic:'🧭',d:'Petunjuk, tujuan pembelajaran, dan peta konsep'},
+  {id:'materi',t:'Materi Bacaan',ic:'📖',d:'Fenomena pemuaian dan aplikasinya di bidang teknik'},
+  {id:'padat',t:'Pemuaian Zat Padat',ic:'🔩',d:'Simulasi batang logam dan lembar kerja'},
+  {id:'cair',t:'Pemuaian Zat Cair',ic:'🌡️',d:'Termometer dan anomali air'},
+  {id:'gas',t:'Pemuaian Gas',ic:'🎈',d:'Hukum Charles, Gay-Lussac, dan Boyle'},
+  {id:'bimetal',t:'Bimetal & Termostat',ic:'🔌',d:'Saklar otomatis pada setrika'},
+  {id:'rangkuman',t:'Rangkuman',ic:'🗒️',d:'Rumus penting, glosarium, dan refleksi'},
+  {id:'kuis',t:'Kuis',ic:'📝',d:'Uji pemahamanmu'}
+];
+const pidx=id=>PAGES.findIndex(p=>p.id===id);
+$('#tocList').innerHTML=PAGES.slice(2).map(p=>`<button class="tocrow" data-t="${p.id}"><span class="ti">${p.ic}</span><span class="tt"><b>${p.t}</b><small>${p.d}</small></span><i></i><span class="tn"></span></button>`).join('');
+/* Setiap bab (section) adalah sumber isi. Isinya dipotong menjadi lembar-lembar
+   setinggi layar: blok yang tidak muat pindah ke lembar berikutnya, kartu bertanda
+   .split dipecah per elemen, dan blok yang tetap terlalu tinggi diperkecil (zoom). */
+const CHAPS=PAGES.map(p=>{
+  const el=document.getElementById(p.id);
+  const c={...p,el,cls:[...el.classList].filter(x=>x!=='panel'&&x!=='active'),blocks:[...el.children]};
+  el.className='chap';
+  c.blocks.forEach(b=>{if(b.classList.contains('split'))b._kids=[...b.children]});
+  return c;
+});
+let SHEETS=[],cur=0,active='cover',TWO=false,ACT=new Set(['cover']);
+const KEEP=el=>/^H[2-4]$/.test(el.tagName)||el.classList.contains('grp')||el.classList.contains('readlink');
+const over=b=>{  // isi melewati batas lembar (dengan sedikit ruang cadangan)?
+  const l=b.lastElementChild;if(!l)return false;
+  return b.scrollHeight>b.clientHeight+1||l.getBoundingClientRect().bottom-b.getBoundingClientRect().top>b.clientHeight-4;
+};
+function newSheet(c){
+  const s=document.createElement('div');
+  s.className='panel sheet measure '+c.cls.join(' ');s.dataset.chap=c.id;
+  s.innerHTML=c.id==='cover'?'<div class="sheet-body"></div>':`<div class="pghead"><span>Modul Pemuaian</span><span>${c.ic} ${c.t}</span></div><div class="sheet-body"></div><div class="pgfoot">— 0 —</div>`;  // nomor sementara agar tingginya ikut terukur
+  $('main').appendChild(s);SHEETS.push(s);
+  return s.querySelector('.sheet-body');
+}
+function fitZoom(body,b){
+  for(let k=0,z=1;k<8&&over(body)&&z>.5;k++){
+    const used=body.lastElementChild.getBoundingClientRect().bottom-body.getBoundingClientRect().top;
+    z=Math.max(.5,Math.min(z-.02,z*(body.clientHeight-8)/Math.max(used,body.scrollHeight)));b.style.zoom=z;
+  }
+}
+function splitInto(c,b,body){
+  b._kids.forEach(k=>k.remove());
+  let wrap=b;
+  for(const k of b._kids){
+    wrap.appendChild(k);
+    if(!over(body))continue;
+    // lembar ini hanya berisi judul + elemen ini: pindah halaman tidak membantu, jadi perkecil
+    if([...body.children].every(x=>x===wrap||KEEP(x))&&[...wrap.children].every(x=>x===k||KEEP(x))){fitZoom(body,k);continue}
+    wrap.removeChild(k);
+    if([...wrap.children].every(KEEP)){
+      // kartu baru berisi judul di lembar ini: pindahkan utuh (beserta judul sebelumnya)
+      const prev=wrap.previousElementSibling;wrap.remove();
+      body=newSheet(c);if(prev&&KEEP(prev))body.appendChild(prev);
+      body.appendChild(wrap);
+    }else{
+      const carry=KEEP(wrap.lastElementChild)?[wrap.lastElementChild]:[];
+      carry.forEach(x=>x.remove());
+      body=newSheet(c);wrap=b.cloneNode(false);wrap.removeAttribute('id');wrap.classList.add('cont');body.appendChild(wrap);
+      carry.forEach(x=>wrap.appendChild(x));
+    }
+    wrap.appendChild(k);
+    if(over(body))fitZoom(body,k);
+  }
+  return body;
+}
+function paginate(){
+  // ingat isi yang sedang dibaca agar tetap di halaman yang sama setelah dihitung ulang
+  let anchor=SHEETS[cur]&&SHEETS[cur].querySelector('.sheet-body').firstElementChild;
+  if(anchor&&anchor.classList.contains('cont'))anchor=anchor.firstElementChild;
+  const bar=$('.bookbar'),main=$('main');
+  document.body.style.paddingBottom=bar.offsetHeight+'px';
+  // layar lebar: dua halaman tegak berdampingan; ponsel: satu halaman
+  TWO=innerWidth>=900;main.classList.toggle('spread',TWO);
+  const ms=getComputedStyle(main),mw=main.clientWidth-parseFloat(ms.paddingLeft)-parseFloat(ms.paddingRight);
+  const H=Math.max(320,innerHeight-$('header').offsetHeight-bar.offsetHeight-parseFloat(ms.paddingTop)-parseFloat(ms.paddingBottom)-10);
+  const W=TWO?Math.min((mw-12)/2,H*.75):Math.min(mw-8,Math.max(360,H*.8));
+  document.documentElement.style.setProperty('--pageH',H+'px');
+  document.documentElement.style.setProperty('--pageW',Math.floor(W)+'px');
+  // kembalikan semua blok ke babnya
+  SHEETS.forEach(s=>s.remove());SHEETS=[];
+  CHAPS.forEach(c=>c.blocks.forEach(b=>{if(b._kids)b._kids.forEach(k=>{k.style.zoom='';b.appendChild(k)});b.style.zoom='';c.el.appendChild(b)}));
+  for(const c of CHAPS){
+    let body=newSheet(c);
+    for(const b of c.blocks){
+      body.appendChild(b);
+      if(!over(body))continue;
+      if(b._kids){body=splitInto(c,b,body);continue}
+      // pindah ke lembar baru, kecuali lembar ini hanya berisi judul (judul tidak boleh sendirian)
+      if([...body.children].some(x=>x!==b&&!KEEP(x))){
+        body.removeChild(b);
+        const prev=body.lastElementChild,head=prev&&KEEP(prev)?prev:null;
+        body=newSheet(c);if(head)body.appendChild(head);body.appendChild(b);
+      }
+      fitZoom(body,b);
+    }
+  }
+  SHEETS.forEach((s,i)=>{s.classList.remove('measure','active');const f=s.querySelector('.pgfoot');if(f)f.textContent='— '+i+' —'});
+  $$('.tocrow').forEach(r=>r.querySelector('.tn').textContent=SHEETS.findIndex(s=>s.dataset.chap===r.dataset.t));
+  const i=anchor?SHEETS.findIndex(s=>s.contains(anchor)):-1;
+  go(i<0?0:i,false);
+}
+// dua halaman: sampul sendirian, lalu pasangan (1,2), (3,4), ... ; cur = halaman kiri
+const norm=i=>{i=Math.max(0,Math.min(SHEETS.length-1,i));return TWO&&i>0&&i%2===0?i-1:i};
+const shown=i=>TWO&&i>0?[SHEETS[i],SHEETS[i+1]].filter(Boolean):[SHEETS[i]];
+const nextOf=i=>TWO?(i===0?1:i+2):i+1;
+const prevOf=i=>TWO?(i<=1?0:i-2):i-1;
+function freeze(s){
+  const r=s.getBoundingClientRect();
+  Object.assign(s.style,{position:'fixed',top:r.top+'px',left:r.left+'px',width:r.width+'px',margin:0});
+}
+function go(i,anim=true){
+  i=norm(i);
+  $$('.pg-out,.pg-outb,.pg-under,.pg-in').forEach(p=>{p.classList.remove('pg-out','pg-outb','pg-under','pg-in');p.removeAttribute('style')});
+  const old=$$('.sheet.active'),neu=shown(i),dir=i>cur?1:-1;
+  if(anim&&!RM&&old.length&&i!==cur){
+    // lembar yang dibalik: halaman kanan saat maju, halaman kiri saat mundur (dua halaman)
+    let flip=null,cls='pg-out';
+    if(TWO){flip=dir>0?old[old.length-1]:old[0];cls=dir>0||old.length<2?'pg-out':'pg-outb'}
+    else if(dir>0)flip=old[0];
+    else{freeze(old[0]);old[0].classList.add('pg-under');neu[0].classList.add('pg-in')}
+    if(flip){freeze(flip);flip.classList.add(cls)}
+    const done=[...old,...neu];
+    setTimeout(()=>done.forEach(s=>{s.classList.remove('pg-out','pg-outb','pg-under','pg-in');if(!s.classList.contains('active'))s.removeAttribute('style')}),850);
+  }
+  old.forEach(s=>{if(!neu.includes(s))s.classList.remove('active')});
+  neu.forEach((s,k)=>{s.classList.add('active');s.classList.toggle('lp',TWO&&neu.length===2&&k===0);s.classList.toggle('rp',TWO&&neu.length===2&&k===1)});
+  cur=i;active=neu[0].dataset.chap;ACT=new Set(neu.map(s=>s.dataset.chap));
+  document.body.classList.toggle('oncover',i===0);
+  $('#ttl').textContent=CHAPS[pidx(neu[neu.length-1].dataset.chap)].t;
+  const last=i+neu.length-1;
+  $('#bkNum').textContent=i===0?'Sampul':neu.length>1?`Halaman ${i}–${last} dari ${SHEETS.length-1}`:`Halaman ${i} dari ${SHEETS.length-1}`;
+  $('#bkPrev').disabled=i===0;$('#bkNext').disabled=last>=SHEETS.length-1;
+  window.scrollTo(0,0);
+}
+function show(id,sec,anim=true){
+  const el=sec&&document.getElementById(sec);
+  const i=el?SHEETS.findIndex(s=>s.contains(el)):SHEETS.findIndex(s=>s.dataset.chap===id);
+  if(i>=0)go(i,anim);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b)show(b.dataset.t,b.dataset.s)});
+$('#bkPrev').onclick=()=>go(prevOf(cur));
+$('#bkNext').onclick=()=>{if(!$('#bkNext').disabled)go(nextOf(cur))};
+document.addEventListener('keydown',e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  if(cur===0)return;  // sampul hanya dibuka lewat tombol
+  if(e.key==='ArrowRight'||e.key==='PageDown')$('#bkNext').click();else if(e.key==='ArrowLeft'||e.key==='PageUp')go(prevOf(cur));
+});
+{ // geser kiri/kanan di ponsel untuk membalik halaman (kecuali saat menggeser slider)
+  let x0=null,y0=0;const m=$('main');
+  m.addEventListener('touchstart',e=>{x0=e.target.closest('input,select,label,button')?null:e.touches[0].clientX;y0=e.touches[0].clientY},{passive:true});
+  m.addEventListener('touchend',e=>{
+    if(x0===null||cur===0)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
+    if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){if(dx<0)$('#bkNext').click();else go(prevOf(cur))}
+  });
+}
+{ // hitung ulang halaman saat ukuran layar berubah
+  let t=null,lw=innerWidth,lh=innerHeight;
+  addEventListener('resize',()=>{clearTimeout(t);t=setTimeout(()=>{if(Math.abs(innerWidth-lw)>2||Math.abs(innerHeight-lh)>60){lw=innerWidth;lh=innerHeight;paginate()}},250)});
+}
+// nama & kelas di sampul disimpan di perangkat ini
+['cvNama','cvKelas'].forEach(k=>{const el=$('#'+k);try{el.value=localStorage.getItem('pm_'+k)||''}catch(e){}el.oninput=()=>{try{localStorage.setItem('pm_'+k,el.value)}catch(e){}}});
+
+/* ---------- ZAT PADAT ---------- */
+const MAT={alu:{n:'Aluminium',a:2.4e-5},cu:{n:'Tembaga',a:1.7e-5},fe:{n:'Besi',a:1.2e-5},gl:{n:'Kaca',a:0.9e-5}};
+const P={mat:'cu',L:2,T:20,zoom:50,rows:[]};
+const calcP=()=>{const m=MAT[P.mat],dT=P.T-20;return{m,dT,dL:P.L*m.a*dT}};
+function drawPadat(ts){
+  const {c,w,h}=setup($('#cvP'));if(w<10)return;
+  c.clearRect(0,0,w,h);
+  const ink=cssv('--ink'),mut=cssv('--muted'),{m,dL}=calcP();
+  const x0=40,ppm=(w-x0-30)/3.4,y=120,th=38;
+  c.strokeStyle=mut;c.fillStyle=mut;c.lineWidth=1;c.font='11px system-ui';c.textAlign='left';
+  c.fillText('Penggaris (skala asli)',x0,48);
+  c.beginPath();c.moveTo(x0,60);c.lineTo(x0+3*ppm,60);c.stroke();
+  c.textAlign='center';
+  for(let i=0;i<=6;i++){const x=x0+i*.5*ppm;c.beginPath();c.moveTo(x,60);c.lineTo(x,i%2?66:70);c.stroke();if(i%2===0)c.fillText((i/2)+' m',x,83)}
+  c.fillStyle='#8b95a8';c.fillRect(x0-14,y-26,14,th+52);
+  const L0=P.L*ppm,ext=dL*P.zoom*ppm,len=Math.min(Math.max(10,L0+ext),w-x0-6);
+  c.fillStyle=heat(P.T,-50,500);c.fillRect(x0,y,len,th);
+  c.fillStyle='rgba(255,255,255,.28)';c.fillRect(x0,y,len,th*.3);
+  c.strokeStyle='rgba(0,0,0,.3)';c.strokeRect(x0,y,len,th);
+  c.fillStyle='#fff';c.font='bold 13px system-ui';c.textAlign='left';c.fillText(m.n+' '+fmt(P.L,1)+' m',x0+10,y+th/2+5);
+  c.setLineDash([5,4]);c.strokeStyle=ink;c.beginPath();c.moveTo(x0+L0,y-22);c.lineTo(x0+L0,y+th+22);c.stroke();c.setLineDash([]);
+  if(Math.abs(len-L0)>4){
+    const xa=Math.min(x0+L0,x0+len),xb=Math.max(x0+L0,x0+len);
+    c.strokeStyle='#f97316';c.lineWidth=2;c.beginPath();c.moveTo(xa,y-14);c.lineTo(xb,y-14);c.moveTo(xa,y-19);c.lineTo(xa,y-9);c.moveTo(xb,y-19);c.lineTo(xb,y-9);c.stroke();
+    c.fillStyle='#f97316';c.font='bold 12px system-ui';c.textAlign='center';
+    c.fillText('ΔL = '+fmt(dL*1000,2)+' mm (×'+P.zoom+')',Math.max(95,Math.min(w-95,(xa+xb)/2)),y-24);
+  }
+  const by=262;c.fillStyle='#64748b';c.fillRect(x0,by,Math.max(L0,60),8);
+  const n=Math.max(2,Math.floor(L0/36));
+  if(P.T>20){
+    const fh=14+78*Math.min(1,(P.T-20)/480);
+    for(let i=0;i<n;i++)flame(c,x0+14+i*(Math.max(L0,60)-28)/(n-1),by,fh*(.85+.15*Math.sin(ts/130+i*1.7)));
+  }else if(P.T<20){
+    c.font='22px system-ui';c.textAlign='center';
+    for(let i=0;i<n;i++)c.fillText('❄',x0+14+i*(Math.max(L0,60)-28)/(n-1),by-6);
+  }
+  c.textAlign='right';c.font='bold 20px system-ui';c.fillStyle=heat(P.T,-50,500);c.fillText(P.T+' °C',w-12,28);
+}
+function updPadat(){
+  const {m,dT,dL}=calcP();
+  $('#pTv').textContent=P.T;$('#pLv').textContent=fmt(P.L,1);
+  $('#pFormula').innerHTML=`ΔL = L₀ · α · ΔT<br>= ${fmt(P.L,2)} × ${fmt(m.a*1e5,1)}×10⁻⁵ × ${dT<0?'('+dT+')':dT}<br>= <b>${fmt(dL*1000,2)} mm</b>`;
+  $('#pCoef').innerHTML=`Panjang akhir L = ${fmt(P.L+dL,5)} m.<br>Untuk bahan ini: α = ${fmt(m.a*1e5,1)}×10⁻⁵ /°C, β = 2α = ${fmt(2*m.a*1e5,1)}×10⁻⁵ /°C, γ = 3α = ${fmt(3*m.a*1e5,1)}×10⁻⁵ /°C.`;
+  updMisi();
+}
+const M_T=[60,100,150,200,300];
+P.man={};
+function updMisi(){
+  const r=P.rows.filter(x=>Math.abs(x[1]-2)<1e-9);
+  const t1=M_T.filter(t=>r.some(x=>x[0]===MAT.cu.n&&x[2]===t)).length;
+  const t2=Object.values(MAT).filter(m=>r.some(x=>x[0]===m.n&&x[2]===200)).length;
+  $('#m2c').textContent=`(${t1}/${M_T.length})`;$('#m3c').textContent=`(${t2}/4)`;
+  const ok={1:P.man[1],2:t1===M_T.length,3:t2===4,4:P.man[4],5:P.man[5]};
+  let n=0;
+  $$('#mList li').forEach(li=>{const d=!!ok[li.dataset.m];li.classList.toggle('done',d);if(d)n++});
+  const p=$('#mProg');p.textContent=n+'/5';p.className='pill '+(n===5?'on-p':'off-p');
+}
+$$('#mList li.man').forEach(li=>li.onclick=()=>{const k=li.dataset.m;P.man[k]=!P.man[k];updMisi()});
+$('#toLks').onclick=()=>show('padat','lksPadat');
+function renderTable(){
+  updMisi();
+  $('#pTable').innerHTML=P.rows.length?`<table><tr><th>Bahan</th><th>L₀ (m)</th><th>T (°C)</th><th>ΔT</th><th>ΔL (mm)</th></tr>${P.rows.map(r=>`<tr><td>${r[0]}</td><td>${fmt(r[1],1)}</td><td>${r[2]}</td><td>${r[3]}</td><td>${fmt(r[4],2)}</td></tr>`).join('')}</table>`:'<span class="muted">Belum ada data. Atur simulasi lalu tekan "Catat data".</span>';
+}
+function syncP(){$('#pMat').value=P.mat;$('#pLen').value=P.L;$('#pTemp').value=P.T;updPadat()}
+$('#pMat').onchange=e=>{P.mat=e.target.value;updPadat()};
+$('#pLen').oninput=e=>{P.L=+e.target.value;updPadat()};
+$('#pTemp').oninput=e=>{P.T=+e.target.value;updPadat()};$('#pReset').onclick=()=>{P.T=20;P.L=2;P.mat='cu';P.zoom=50;syncP()};
+$('#pRec').onclick=()=>{const {m,dT,dL}=calcP();P.rows.push([m.n,P.L,P.T,dT,dL*1000]);renderTable()};
+$('#pClr').onclick=()=>{P.rows=[];renderTable()};
+$('#pCsv').onclick=()=>{
+  if(!P.rows.length)return;
+  const csv='Bahan,L0 (m),T akhir (C),dT (C),dL (mm)\n'+P.rows.map(r=>[r[0],r[1],r[2],r[3],r[4].toFixed(3)].join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='data-pemuaian.csv';a.click();
+};
+
+/* ---------- ZAT CAIR ---------- */
+const LQ=[{n:'Alkohol',g:1.1e-3,col:'#e11d48'},{n:'Raksa',g:1.8e-4,col:'#64748b'},{n:'Air',g:2.1e-4,col:'#2563eb'}];
+const C={T:20,Tw:8};
+function drawCair(){
+  const {c,w,h}=setup($('#cvC'));if(w<10)return;
+  c.clearRect(0,0,w,h);
+  const ink=cssv('--ink'),line=cssv('--line'),dT=C.T-20,yb=262;
+  LQ.forEach((q,i)=>{
+    const cx=(i+.5)*w/3,top=Math.max(22,yb-(70+q.g*dT*2600));
+    c.fillStyle=q.col;c.fillRect(cx-7,top,14,yb-top+10);
+    c.beginPath();c.arc(cx,yb+10,20,0,7);c.fill();
+    c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.moveTo(cx-9,16);c.lineTo(cx-9,yb-6);c.arc(cx,yb+10,24,Math.PI*1.35,Math.PI*1.65,true);c.moveTo(cx+9,16);c.lineTo(cx+9,yb-6);c.arc(cx,yb+10,24,Math.PI*1.65,Math.PI*1.35,false);c.stroke();
+    c.beginPath();c.arc(cx,16,9,Math.PI,0);c.stroke();
+    c.fillStyle=ink;c.textAlign='center';c.font='bold 13px system-ui';c.fillText(q.n,cx,h-6);
+  });
+  c.strokeStyle=line;c.beginPath();c.moveTo(0,yb-70);c.lineTo(w,yb-70);c.setLineDash([4,4]);c.stroke();c.setLineDash([]);
+  c.fillStyle=cssv('--muted');c.font='11px system-ui';c.textAlign='left';c.fillText('level pada 20 °C',4,yb-74);
+}
+function updCair(){
+  $('#cTv').textContent=C.T;const dT=C.T-20;
+  $('#cInfo').innerHTML=`<table><tr><th>Cairan</th><th>γ (/°C)</th><th>ΔV (mL)</th></tr>${LQ.map(q=>`<tr><td>${q.n}</td><td>${(q.g*1e4).toFixed(1).replace('.',',')}×10⁻⁴</td><td>${fmt(100*q.g*dT,2)}</td></tr>`).join('')}</table><p class="note">ΔV = V₀ · γ · ΔT. Alkohol memuai paling besar, itulah sebabnya dipakai pada termometer.</p>`;
+}
+$('#cTemp').oninput=e=>{C.T=+e.target.value;updCair()};
+const rho=T=>999.972-0.0075*(T-3.98)**2;
+const ppm=T=>(999.972/rho(T)-1)*1e6;
+function drawWater(){
+  let s=setup($('#cvW1'));
+  if(s.w>10){
+    s.c.clearRect(0,0,s.w,s.h);
+    graph(s.c,s.w,s.h,{xmin:0,xmax:10,ymin:0,ymax:300,fn:ppm,xl:'Suhu (°C)',yl:'Volume relatif (ppm)',px:C.Tw,py:ppm(C.Tw)});
+    s.c.fillStyle=cssv('--ink');s.c.font='bold 12px system-ui';s.c.textAlign='center';s.c.fillText('Volume minimum di 4 °C',s.w*.52,36);
+  }
+  s=setup($('#cvW2'));
+  if(s.w>10){
+    const {c,w,h}=s;c.clearRect(0,0,w,h);
+    const ice=C.Tw<=0.5,top=ice?44:30,lh=(h-top-14)/4;
+    c.fillStyle=cssv('--line');c.fillRect(0,0,w,30);
+    if(ice){c.fillStyle='#e0f2fe';c.fillRect(0,30,w,16);c.fillStyle='#0369a1';c.font='11px system-ui';c.textAlign='left';c.fillText('es',6,42)}
+    for(let i=0;i<4;i++){
+      const t=C.Tw+(4-C.Tw)*i/3;
+      c.fillStyle=heat(t,0,12);c.fillRect(0,top+i*lh,w,lh+1);
+      c.fillStyle='#fff';c.font='bold 12px system-ui';c.textAlign='right';c.fillText(fmt(t,1)+' °C',w-8,top+i*lh+lh/2+4);
+    }
+    c.font='20px system-ui';c.textAlign='left';c.fillText('🐟',10,h-22);
+    c.fillStyle=cssv('--ink');c.font='bold 12px system-ui';c.fillText('Danau (penampang)',8,19);
+  }
+}
+function updWater(){
+  $('#wTv').textContent=fmt(C.Tw,1);
+  $('#wInfo').textContent=C.Tw<=0.5?'Permukaan membeku. Es lebih ringan dari air, sehingga mengapung dan menjadi penyekat. Air 4 °C (paling rapat) berada di dasar, sehingga ikan tetap hidup.':C.Tw<4?'Air di bawah 4 °C justru memuai dan massa jenisnya turun, jadi tetap berada di atas. Air 4 °C yang paling rapat tenggelam ke dasar.':'Di atas 4 °C air berperilaku normal: makin panas, makin memuai.';
+}
+$('#wTemp').oninput=e=>{C.Tw=+e.target.value;updWater()};
+
+/* ---------- GAS ---------- */
+const G={mode:'charles',T:300,V:2,parts:[],hits:0};
+for(let i=0;i<36;i++)G.parts.push({x:Math.random()*200,y:Math.random()*140,a:Math.random()*6.283,k:.6+Math.random()*.8});
+function gasState(){
+  let T=G.T,V,Pr;
+  if(G.mode==='charles'){V=2*T/300;Pr=1}
+  else if(G.mode==='gay'){V=2;Pr=T/300}
+  else{T=300;V=G.V;Pr=2/V}
+  return{T,V,Pr};
+}
+const BH=150;
+function boxW(w,V){return Math.max(40,V/4*(w-100))}
+function stepGas(dt){
+  const w=$('#cvGas').getBoundingClientRect().width;if(w<10)return;
+  const {T,V}=gasState(),bw=boxW(w,V),sp=140*Math.sqrt(T/300);
+  for(const p of G.parts){
+    p.x+=Math.cos(p.a)*sp*p.k*dt;p.y+=Math.sin(p.a)*sp*p.k*dt;
+    if(p.x<0){p.x=-p.x;p.a=Math.PI-p.a}
+    if(p.x>bw){p.x=Math.max(0,2*bw-p.x);p.a=Math.PI-p.a;G.hits++}
+    if(p.y<0){p.y=-p.y;p.a=-p.a}
+    if(p.y>BH){p.y=2*BH-p.y;p.a=-p.a}
+    p.x=Math.min(p.x,bw);p.y=Math.max(0,Math.min(BH,p.y));
+  }
+}
+function drawGas(){
+  const {c,w,h}=setup($('#cvGas'));if(w<10)return;
+  c.clearRect(0,0,w,h);
+  const ink=cssv('--ink'),{T,V,Pr}=gasState(),x0=40,y0=120,bw=boxW(w,V),col=heat(T,200,600);
+  c.fillStyle=col+'';c.globalAlpha=.12;c.fillRect(x0,y0,bw,BH);c.globalAlpha=1;
+  c.strokeStyle=ink;c.lineWidth=3;c.beginPath();c.moveTo(x0+bw,y0);c.lineTo(x0,y0);c.lineTo(x0,y0+BH);c.lineTo(x0+bw,y0+BH);c.stroke();
+  c.fillStyle='#94a3b8';c.fillRect(x0+bw,y0-4,10,BH+8);
+  c.fillRect(x0+bw+10,y0+BH/2-3,Math.max(10,w-30-(x0+bw+10)),6);
+  if(G.mode==='charles'){c.fillStyle='#64748b';c.fillRect(x0+bw+16,y0+BH/2-26,22,22);c.fillStyle='#fff';c.font='10px system-ui';c.textAlign='center';c.fillText('beban',x0+bw+27,y0+BH/2-12)}
+  if(G.mode==='gay'){c.fillStyle='#dc2626';c.font='bold 11px system-ui';c.textAlign='left';c.fillText('piston dikunci',x0+bw+14,y0+BH/2-10)}
+  for(const p of G.parts){c.fillStyle=col;c.beginPath();c.arc(x0+p.x,y0+p.y,4.5,0,7);c.fill()}
+  const by=y0+BH+8;
+  if(T>300){c.fillStyle='#64748b';c.fillRect(x0,by+16,bw,6);for(let i=0;i<Math.max(2,bw/40|0);i++)flame(c,x0+14+i*(bw-28)/Math.max(1,(bw/40|0)-1||1),by+16,8+(T-300)/300*18)}
+  else if(T<300){c.font='18px system-ui';c.textAlign='center';for(let i=0;i<Math.max(2,bw/40|0);i++)c.fillText('❄',x0+14+i*(bw-28)/Math.max(1,(bw/40|0)-1||1),by+18)}
+  const gx=w-62,gy=60,r=40;
+  c.strokeStyle=cssv('--line');c.lineWidth=8;c.beginPath();c.arc(gx,gy,r,Math.PI,2*Math.PI);c.stroke();
+  c.strokeStyle=heat(Pr*240,0,600);c.beginPath();c.arc(gx,gy,r,Math.PI,Math.PI+Math.min(1,Pr/2.5)*Math.PI);c.stroke();
+  const ang=Math.PI+Math.min(1,Pr/2.5)*Math.PI;
+  c.strokeStyle=ink;c.lineWidth=3;c.beginPath();c.moveTo(gx,gy);c.lineTo(gx+Math.cos(ang)*(r-6),gy+Math.sin(ang)*(r-6));c.stroke();
+  c.fillStyle=ink;c.beginPath();c.arc(gx,gy,4,0,7);c.fill();
+  c.textAlign='center';c.font='bold 12px system-ui';c.fillText('P = '+fmt(Pr,2)+' atm',gx,gy+20);
+  c.textAlign='left';c.font='bold 14px system-ui';c.fillText('T = '+Math.round(T)+' K',x0,28);c.fillText('V = '+fmt(V,2)+' L',x0,48);
+}
+function drawGG(){
+  const {c,w,h}=setup($('#cvGG'));if(w<10)return;
+  c.clearRect(0,0,w,h);const {T,V,Pr}=gasState();
+  if(G.mode==='charles')graph(c,w,h,{xmin:200,xmax:600,ymin:0,ymax:4,fn:t=>2*t/300,xl:'T (K)',yl:'V (L)',px:T,py:V,yd:1});
+  else if(G.mode==='gay')graph(c,w,h,{xmin:200,xmax:600,ymin:0,ymax:2.2,fn:t=>t/300,xl:'T (K)',yl:'P (atm)',px:T,py:Pr,yd:1});
+  else graph(c,w,h,{xmin:1,xmax:4,ymin:0,ymax:2.2,fn:v=>2/v,xl:'V (L)',yl:'P (atm)',px:V,py:Pr,yd:1,xd:1});
+}
+function updGas(){
+  const {T,V,Pr}=gasState();
+  $('#gTv').textContent=G.T;$('#gVv').textContent=fmt(G.V,1);
+  $('#gTw').style.display=G.mode==='boyle'?'none':'block';
+  $('#gVw').style.display=G.mode==='boyle'?'block':'none';
+  $('#gInfo').innerHTML=G.mode==='charles'?`V / T = konstan (P tetap)<br>${fmt(V,2)} / ${Math.round(T)} = <b>${fmt(V/T,5)}</b> L/K`:G.mode==='gay'?`P / T = konstan (V tetap)<br>${fmt(Pr,2)} / ${Math.round(T)} = <b>${fmt(Pr/T,5)}</b> atm/K`:`P · V = konstan (T tetap)<br>${fmt(Pr,2)} × ${fmt(V,1)} = <b>${fmt(Pr*V,2)}</b> atm·L`;
+}
+$$('input[name=gm]').forEach(r=>r.onchange=e=>{G.mode=e.target.value;updGas()});
+$('#gT').oninput=e=>{G.T=+e.target.value;updGas()};
+$('#gV').oninput=e=>{G.V=+e.target.value;updGas()};
+setInterval(()=>{$('#gHits').textContent=Math.round(G.hits*2);G.hits=0},500);
+
+/* ---------- BIMETAL ---------- */
+const B={T:20,Ts:100,auto:false,closed:true};
+function stepBi(dt){
+  if(B.auto){B.T+=((B.closed?30:0)-(B.T-20)*.12)*dt;B.T=Math.max(20,Math.min(200,B.T))}
+  if(B.closed&&B.T>B.Ts+2)B.closed=false;else if(!B.closed&&B.T<B.Ts-2)B.closed=true;
+}
+function drawBi(ts){
+  const {c,w,h}=setup($('#cvB'));if(w<10)return;
+  c.clearRect(0,0,w,h);
+  const ink=cssv('--ink'),x0=60,L=Math.min(300,w-x0-130),y0=190,d=Math.max(0,1.2*(B.T-(B.Ts-2)));
+  const lx=w-50,wire=B.closed?'#f59e0b':'#94a3b8';
+  c.lineWidth=3;c.strokeStyle=wire;c.beginPath();c.moveTo(x0,y0);c.lineTo(x0,50);c.lineTo(x0+30,50);c.moveTo(x0+46,50);c.lineTo(lx,50);c.lineTo(lx,69);c.moveTo(lx,101);c.lineTo(lx,130);c.lineTo(x0+L,130);c.lineTo(x0+L,y0-20);c.stroke();
+  c.strokeStyle=ink;c.lineWidth=3;c.beginPath();c.moveTo(x0+30,38);c.lineTo(x0+30,62);c.stroke();c.lineWidth=6;c.beginPath();c.moveTo(x0+40,44);c.lineTo(x0+40,56);c.stroke();
+  c.fillStyle=ink;c.font='11px system-ui';c.textAlign='center';c.fillText('baterai',x0+35,78);
+  if(B.closed){const g=c.createRadialGradient(lx,85,4,lx,85,46);g.addColorStop(0,'rgba(253,224,71,.9)');g.addColorStop(1,'rgba(253,224,71,0)');c.fillStyle=g;c.fillRect(lx-50,35,100,100)}
+  c.fillStyle=B.closed?'#fde047':'#cbd5e1';c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.arc(lx,85,16,0,7);c.fill();c.stroke();
+  c.fillStyle=ink;c.fillText('pemanas',lx,115);
+  c.fillStyle='#8b95a8';c.fillRect(x0-16,y0-30,16,70);
+  c.fillStyle='#64748b';c.fillRect(x0+L-10,y0-20,20,10);
+  const path=off=>{c.beginPath();for(let i=0;i<=30;i++){const t=i/30,x=x0+L*t,y=y0+d*t*t+off;i?c.lineTo(x,y):c.moveTo(x,y)}c.stroke()};
+  c.lineWidth=10;c.lineCap='butt';c.strokeStyle='#d9a441';path(-5);c.strokeStyle='#6b7280';path(5);
+  c.fillStyle=ink;c.font='bold 11px system-ui';c.textAlign='left';c.fillText('kuningan',x0+8,y0-14);c.fillStyle='#fff';
+  if(B.T>25){const n=3,fh=10+40*Math.min(1,(B.T-20)/180);for(let i=0;i<n;i++)flame(c,x0+L*(.2+.3*i),265,fh*(.85+.15*Math.sin(ts/120+i*2)))}
+  c.fillStyle='#64748b';c.fillRect(x0,265,L,8);
+  c.fillStyle=heat(B.T,20,200);c.font='bold 20px system-ui';c.textAlign='left';c.fillText(Math.round(B.T)+' °C',12,h-12);
+}
+function updBi(){
+  $('#bTv').textContent=Math.round(B.T);$('#bTsv').textContent=B.Ts;
+  $('#bInfo').innerHTML=`Rangkaian: <span class="pill ${B.closed?'on-p':'off-p'}">${B.closed?'TERSAMBUNG, pemanas menyala':'TERPUTUS, pemanas mati'}</span><p class="note">Keping memutus arus ketika suhu melewati pengaturan termostat, lalu menyambung lagi setelah dingin. Itulah cara setrika dan penanak nasi menjaga suhu.</p>`;
+}
+$('#bT').oninput=e=>{B.T=+e.target.value;updBi()};
+$('#bTs').oninput=e=>{B.Ts=+e.target.value;updBi()};
+$('#bAuto').onchange=e=>{B.auto=e.target.checked;$('#bT').disabled=B.auto};
+
+/* ---------- KUIS ---------- */
+const Q=[
+ {q:'Batang baja 2 m (α = 1,2×10⁻⁵ /°C) dipanaskan dari 20 °C hingga 70 °C. Berapa pertambahan panjangnya?',o:['0,12 mm','1,2 mm','12 mm','2,4 mm'],a:1,e:'ΔL = 2 × 1,2×10⁻⁵ × 50 = 1,2×10⁻³ m = 1,2 mm.'},
+ {q:'Sebuah logam memiliki koefisien muai volume γ = 6×10⁻⁵ /°C. Berapa koefisien muai panjangnya?',o:['2×10⁻⁵ /°C','3×10⁻⁵ /°C','6×10⁻⁵ /°C','1,8×10⁻⁴ /°C'],a:0,e:'γ = 3α, jadi α = γ/3 = 2×10⁻⁵ /°C.'},
+ {q:'Pada suhu berapa air memiliki volume paling kecil (massa jenis paling besar)?',o:['0 °C','4 °C','50 °C','100 °C'],a:1,e:'Anomali air: volume minimum dan massa jenis maksimum terjadi di sekitar 4 °C.'},
+ {q:'Gas dalam silinder bertekanan tetap bersuhu 300 K dan bervolume 2 L. Jika suhunya naik menjadi 600 K, volumenya menjadi...',o:['1 L','2 L','4 L','8 L'],a:2,e:'Hukum Charles: V₁/T₁ = V₂/T₂, sehingga V₂ = 2 × 600/300 = 4 L.'},
+ {q:'Mengapa keping bimetal melengkung saat dipanaskan?',o:['Kedua logam menyusut','Kedua logam memiliki massa berbeda','Kedua logam memiliki koefisien muai berbeda','Logam menjadi lebih ringan'],a:2,e:'Logam dengan α lebih besar memuai lebih panjang, sehingga keping melengkung ke arah logam yang α-nya lebih kecil.'},
+ {q:'Rel kereta api diberi celah di sambungannya agar...',o:['kereta lebih cepat','rel tidak bengkok saat memuai di siang hari','rel lebih ringan','rel lebih murah'],a:1,e:'Celah memberi ruang saat rel memuai oleh panas matahari, sehingga rel tidak melengkung.'},
+ {q:'Baja dan beton dapat disatukan menjadi beton bertulang terutama karena...',o:['baja lebih kuat dari beton','koefisien muai keduanya hampir sama','beton tidak bisa memuai','baja tidak berkarat di dalam beton'],a:1,e:'α baja (±1,2×10⁻⁵) hampir sama dengan α beton (±1,0×10⁻⁵), sehingga keduanya memuai bersama dan tidak saling merusak.'},
+ {q:'Untuk memasang cincin baja pada poros dengan cara shrink fit, langkah yang benar adalah...',o:['mendinginkan cincin lalu memasangnya','memanaskan cincin agar lubangnya membesar, lalu dipasang dan dibiarkan dingin','memanaskan poros agar membesar','memukul cincin sampai masuk'],a:1,e:'Cincin yang dipanaskan memuai sehingga lubangnya membesar. Setelah dingin, cincin menyusut dan mencengkeram poros dengan kuat.'}
+];
+let qi=0,score=0,answered=false;
+function renderQ(){
+  const box=$('#quiz');
+  if(qi>=Q.length){
+    let best=score;
+    try{best=Math.max(score,+localStorage.getItem('pemuaianBest')||0);localStorage.setItem('pemuaianBest',best)}catch(e){}
+    box.innerHTML=`<h3>Selesai!</h3><p style="font-size:1.6rem;font-weight:800;margin:.2em 0">Skor: ${score} / ${Q.length}</p><p class="muted">Skor terbaik di perangkat ini: ${best} / ${Q.length}</p><button class="btn" id="qRe">Ulangi kuis</button>`;
+    $('#qRe').onclick=()=>{qi=0;score=0;renderQ()};return;
+  }
+  const q=Q[qi];answered=false;
+  box.innerHTML=`<div class="muted">Soal ${qi+1} dari ${Q.length}</div><h3>${q.q}</h3>`+q.o.map((t,i)=>`<button class="opt" data-i="${i}">${t}</button>`).join('')+'<div id="fb"></div>';
+  $$('.opt').forEach(b=>b.onclick=()=>{
+    if(answered)return;answered=true;const i=+b.dataset.i;
+    $$('.opt').forEach((o,j)=>{if(j===q.a)o.classList.add('right');else if(j===i)o.classList.add('wrong')});
+    if(i===q.a)score++;
+    $('#fb').innerHTML=`<p><b>${i===q.a?'Benar!':'Kurang tepat.'}</b> ${q.e}</p><button class="btn" id="qN">${qi+1<Q.length?'Soal berikutnya':'Lihat skor'}</button>`;
+    $('#qN').onclick=()=>{qi++;renderQ()};
+  });
+}
+
+/* ---------- Gambar animasi (materi & beranda) ---------- */
+const ph=(t,P=5)=>(1-Math.cos(2*Math.PI*t/P))/2;   // siklus panas 0..1..0
+const lerp=(a,b,x)=>a+(b-a)*x;
+const tri=u=>Math.abs((((u%2)+2)%2)-1);
+const mix=(a,b,p,al=1)=>`rgba(${a.map((v,i)=>Math.round(lerp(v,b[i],p))).join(',')},${al})`;
+const metal=p=>mix([148,163,184],[234,88,12],p);        // logam abu-abu -> membara
+const hot=(p,al=1)=>mix([59,130,246],[249,115,22],p,al); // biru (dingin) -> oranye (panas)
+const water=ti=>mix([186,230,253],[30,64,175],1-Math.min(1,Math.abs(ti-4)/4)); // paling gelap = paling rapat (4 °C)
+const concrete=p=>`hsl(30 ${Math.round(lerp(6,30,p))}% ${Math.round(lerp(72,65,p))}%)`;
+function tx(c,s,x,y,col,o={}){c.font=(o.b?'bold ':'')+(o.s||11)+'px system-ui';c.fillStyle=col;c.textAlign=o.a||'center';c.fillText(s,x,y)}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function sky(c,x,y,p){ // matahari saat panas, bulan saat dingin
+  c.save();c.globalAlpha=p;c.fillStyle=c.strokeStyle='#fbbf24';c.lineWidth=2;
+  c.beginPath();c.arc(x,y,8,0,7);c.fill();
+  for(let i=0;i<8;i++){const a=i*Math.PI/4;c.beginPath();c.moveTo(x+Math.cos(a)*11,y+Math.sin(a)*11);c.lineTo(x+Math.cos(a)*15,y+Math.sin(a)*15);c.stroke()}
+  c.globalAlpha=1-p;c.fillStyle='#cbd5e1';c.beginPath();c.arc(x,y,8,0,7);c.fill();
+  c.fillStyle='#94a3b8';c.beginPath();c.arc(x-2,y-2,2,0,7);c.fill();c.beginPath();c.arc(x+3,y+2,1.5,0,7);c.fill();
+  c.restore();
+}
+function thermoS(c,x,y,hh,p,ink){
+  const lv=lerp(.15,.9,p)*hh;c.fillStyle='#ef4444';c.fillRect(x-2,y+hh-lv,4,lv+3);
+  c.strokeStyle=ink;c.lineWidth=1.5;rr(c,x-4,y,8,hh+2,4);c.stroke();
+  c.beginPath();c.arc(x,y+hh+6,6,0,7);c.fill();c.stroke();
+}
+function fl(c,x,y,hh,t){if(hh>1.5)flame(c,x,y,hh*(.85+.15*Math.sin(t*9+x)))}
+function railCore(c,w,h,p,gy,ry,txt,gnd){
+  c.fillStyle=gnd;c.fillRect(0,gy,w,h-gy);
+  c.fillStyle='rgba(120,53,15,.6)';for(let x=6;x<w;x+=24)c.fillRect(x,ry+6,11,gy-ry-6);
+  const gx=w*.45,g=lerp(16,3,p);
+  c.fillStyle=metal(p);c.fillRect(0,ry,gx-g/2,7);c.fillRect(gx+g/2,ry,w,7);
+  c.strokeStyle=txt;c.lineWidth=1.5;c.beginPath();c.moveTo(gx-g/2,ry-3);c.lineTo(gx-g/2,ry-9);c.moveTo(gx+g/2,ry-3);c.lineTo(gx+g/2,ry-9);c.stroke();
+  tx(c,'celah',gx,ry-13,txt,{b:1});
+}
+const MINI={
+  hero(c,w,h,t){
+    const p=ph(t,7),gy=h-24,ry=gy-12;
+    sky(c,w-34,lerp(h-50,26,p),p);
+    const ink='#1f2a44';  // sampul selalu putih, jadi warnanya tetap
+    railCore(c,w,h,p,gy,ry,ink,'#f6f7fa');
+    thermoS(c,18,12,44,p,ink);tx(c,Math.round(lerp(22,48,p))+' °C',32,30,ink,{a:'left',b:1,s:13});
+    const X=((t*70)%(w+420))-210,ty=ry-26;
+    c.fillStyle='#1e293b';rr(c,X,ty,150,22,6);c.fill();c.fillStyle='#ef4444';c.fillRect(X,ty+16,150,3);
+    c.fillStyle='#fde68a';for(let i=0;i<5;i++)c.fillRect(X+10+i*28,ty+5,18,8);
+    c.fillStyle='#0f172a';for(const k of [20,50,100,130]){c.beginPath();c.arc(X+k,ry-1,4,0,7);c.fill()}
+    tx(c,p>.5?'☀️ Siang: rel memuai, celah menyempit':'🌙 Malam: rel menyusut, celah melebar',w/2,h-7,ink,{b:1,s:12});
+  },
+  heatbox(c,w,h,t,T){
+    const p=ph(t,5),cx=w*.4,cy=h/2-14,s=lerp(22,32,p),amp=lerp(.8,3.5,p);
+    c.setLineDash([4,4]);c.strokeStyle=T.mut;c.lineWidth=1;rr(c,cx-48,cy-37,96,74,10);c.stroke();c.setLineDash([]);
+    c.strokeStyle=hot(p);c.lineWidth=2.5;rr(c,cx-(3*s+26)/2,cy-(2*s+26)/2,3*s+26,2*s+26,10);c.stroke();
+    c.fillStyle=hot(p);
+    for(let i=0;i<4;i++)for(let k=0;k<3;k++){
+      c.beginPath();c.arc(cx+(i-1.5)*s+amp*Math.sin(t*23+i*1.7+k*2.9),cy+(k-1)*s+amp*Math.cos(t*19+i*2.3+k*1.3),8,0,7);c.fill();
+    }
+    c.fillStyle=T.mut;c.fillRect(cx-60,h-30,120,5);
+    for(const dx of [-36,0,36])fl(c,cx+dx,h-30,lerp(0,24,p),t);
+    thermoS(c,w*.84,22,90,p,T.ink);tx(c,Math.round(lerp(20,90,p))+' °C',w*.84,142,T.ink,{b:1,s:13});
+    tx(c,p>.5?'Panas: bergetar kuat, jarak renggang':'Dingin: bergetar lemah, jarak rapat',w/2,h-8,T.ink,{b:1,s:12});
+  },
+  states(c,w,h,t,T){
+    const pw=w/3,top=10,bh=h-50,nm=['Padat','Cair','Gas'],sub=['bergetar di tempat','bergeser, berdekatan','bergerak bebas'],col=['#64748b','#2563eb','#f97316'];
+    for(let i=0;i<3;i++){
+      const x0=i*pw+8,bw=pw-16;
+      c.strokeStyle=T.line;c.lineWidth=2;rr(c,x0,top,bw,bh,8);c.stroke();c.fillStyle=col[i];
+      for(let k=0;k<9;k++){
+        let x,y;
+        if(i===0){x=x0+bw/2+((k%3)-1)*16+1.2*Math.sin(t*20+k*2);y=top+bh/2+(Math.floor(k/3)-1)*16+1.2*Math.cos(t*17+k)}
+        else if(i===1){x=x0+14+(k%4)*(bw-28)/3+5*Math.sin(t*1.3+k);y=top+bh-11-Math.floor(k/4)*13+2*Math.cos(t*1.7+k)}
+        else{x=x0+8+(bw-16)*tri(t*.5*(1+(k%3)*.3)+k*.37);y=top+8+(bh-16)*tri(t*.4*(1+(k%2)*.4)+k*.61)}
+        c.beginPath();c.arc(x,y,6,0,7);c.fill();
+      }
+      tx(c,nm[i],x0+bw/2,h-22,T.ink,{b:1,s:12});tx(c,sub[i],x0+bw/2,h-7,T.mut,{s:10});
+    }
+  },
+  dims(c,w,h,t,T){
+    const p=ph(t,5),k=lerp(1,1.22,p),pw=w/3,col=metal(p);
+    c.strokeStyle=T.mut;c.lineWidth=1;
+    // panjang
+    let L=pw*.62,x=pw*.5-L/2;c.fillStyle=col;c.fillRect(x,58,L*k,12);c.setLineDash([4,3]);c.strokeRect(x,58,L,12);c.setLineDash([]);
+    // luas
+    let s=Math.min(pw*.36,60);x=pw*1.5-s/2;c.fillRect(x,26,s*k,s*k);c.setLineDash([4,3]);c.strokeRect(x,26,s,s);c.setLineDash([]);
+    // volume
+    s=Math.min(pw*.3,50);const S=s*k,d=S*.35,y=28+d;x=pw*2.5-s/2-d/2;
+    c.fillStyle=col;c.fillRect(x,y,S,S);
+    c.beginPath();c.moveTo(x,y);c.lineTo(x+d,y-d);c.lineTo(x+S+d,y-d);c.lineTo(x+S,y);c.closePath();c.fill();c.fillStyle='rgba(255,255,255,.35)';c.fill();
+    c.fillStyle=col;c.beginPath();c.moveTo(x+S,y);c.lineTo(x+S+d,y-d);c.lineTo(x+S+d,y-d+S);c.lineTo(x+S,y+S);c.closePath();c.fill();c.fillStyle='rgba(0,0,0,.18)';c.fill();
+    c.setLineDash([4,3]);c.strokeRect(x,y,s,s);c.setLineDash([]);
+    const nm=['Muai panjang','Muai luas','Muai volume'],f=['ΔL = L₀·α·ΔT','ΔA = A₀·β·ΔT','ΔV = V₀·γ·ΔT'];
+    for(let i=0;i<3;i++){
+      c.fillStyle=T.mut;c.fillRect((i+.5)*pw-30,h-40,60,4);
+      for(const dx of [-16,0,16])fl(c,(i+.5)*pw+dx,h-40,lerp(0,18,p),t);
+      tx(c,nm[i],(i+.5)*pw,h-20,T.ink,{b:1,s:12});tx(c,f[i],(i+.5)*pw,h-6,T.mut,{s:10});
+    }
+  },
+  pot(c,w,h,t,T){
+    const p=ph(t,6),cx=w*.4,bw=90,top=34,bot=h-36,bx=cx-bw/2,full=bot-top,lv=lerp(.86,1.04,p)*full;
+    c.fillStyle='rgba(59,130,246,.55)';c.fillRect(bx+2,bot-Math.min(lv,full),bw-4,Math.min(lv,full));
+    if(lv>full){
+      c.beginPath();c.ellipse(cx,top,bw/2-2,lv-full,0,Math.PI,0);c.fill();
+      const dy=(t*50)%(full-6);c.beginPath();c.arc(bx+bw+5,top+dy,3.5,0,7);c.fill();c.fillRect(bx+bw,top-2,4,8);
+    }
+    c.strokeStyle=T.ink;c.lineWidth=3;c.beginPath();c.moveTo(bx,top);c.lineTo(bx,bot);c.lineTo(bx+bw,bot);c.lineTo(bx+bw,top);
+    c.moveTo(bx-12,top+12);c.lineTo(bx,top+12);c.moveTo(bx+bw,top+12);c.lineTo(bx+bw+12,top+12);c.stroke();
+    for(const dx of [-26,0,26])fl(c,cx+dx,h-4,lerp(6,28,p),t);
+    thermoS(c,w*.82,top,full-14,p,T.ink);tx(c,Math.round(lerp(25,95,p))+' °C',w*.82,h-6,T.ink,{b:1,s:12});
+    tx(c,lv>full?'Air memuai sampai tumpah!':'Air dipanaskan dan memuai',w/2,16,T.ink,{b:1,s:12});
+  },
+  lake(c,w,h,t,T){
+    const p=ph(t,9),ts=lerp(8,0,p),ice=Math.max(0,(p-.8)/.2)*10,top=26,lh=(h-top-ice)/4;
+    c.fillStyle=T.line;c.fillRect(0,0,w,top);
+    if(p>.5){c.globalAlpha=(p-.5)*2;c.fillStyle='#60a5fa';for(let k=0;k<14;k++){c.beginPath();c.arc((k*53+t*10)%w,(k*17+t*16)%top,1.6,0,7);c.fill()}c.globalAlpha=1}
+    for(let i=0;i<4;i++){
+      const ti=ts+(4-ts)*i/3;c.fillStyle=water(ti);c.fillRect(0,top+ice+i*lh,w,lh+1);
+      tx(c,fmt(ti,1)+' °C',w-8,top+ice+i*lh+lh/2+4,'#fff',{a:'right',b:1});
+    }
+    if(ice>0){c.fillStyle='#e0f2fe';c.fillRect(0,top,w,ice);tx(c,'es',8,top+ice-2,'#0369a1',{a:'left',b:1,s:10})}
+    const u=t/7,fx=20+(w-90)*tri(u),left=((u%2)+2)%2<1,fy=h-16,dir=left?-1:1;
+    c.fillStyle='#f59e0b';c.beginPath();c.ellipse(fx,fy,12,6,0,0,7);c.fill();
+    c.beginPath();c.moveTo(fx-dir*10,fy);c.lineTo(fx-dir*20,fy-6);c.lineTo(fx-dir*20,fy+6);c.closePath();c.fill();
+    c.fillStyle='#1e293b';c.beginPath();c.arc(fx+dir*6,fy-2,1.5,0,7);c.fill();
+    tx(c,ice>0?'Permukaan membeku, dasar tetap 4 °C':'Udara makin dingin...',8,17,T.ink,{a:'left',b:1});
+  },
+  balloon(c,w,h,t,T){
+    const p=ph(t,6),cx=w*.6,bt=h-46;
+    c.fillStyle=hot(p,.4);c.fillRect(cx-56,bt,112,h-8-bt);
+    if(p>.6){c.strokeStyle=T.mut;c.lineWidth=1.5;for(const dx of [-40,40]){c.beginPath();for(let i=0;i<=10;i++){const y=bt-4-i*2;c.lineTo(cx+dx+3*Math.sin(i*.9+t*4),y)}c.stroke()}}
+    c.strokeStyle=T.ink;c.lineWidth=2;c.beginPath();c.moveTo(cx-56,bt-8);c.lineTo(cx-56,h-8);c.lineTo(cx+56,h-8);c.lineTo(cx+56,bt-8);c.stroke();
+    c.fillStyle='rgba(148,163,184,.25)';rr(c,cx-22,h-84,44,70,8);c.fill();c.stroke();c.fillRect(cx-8,h-100,16,16);c.strokeRect(cx-8,h-100,16,16);
+    c.fillStyle=hot(p);
+    for(let k=0;k<8;k++){c.beginPath();c.arc(cx-16+32*tri(t*(.5+k*.07)+k*.3),h-78+58*tri(t*(.4+k*.05)+k*.71),3,0,7);c.fill()}
+    const r=lerp(7,30,p);c.fillStyle='#ec4899';c.beginPath();c.ellipse(cx,h-100-r*.95,r*.9,r,0,0,7);c.fill();
+    tx(c,p>.5?'air panas 🔥':'air es ❄️',8,bt+20,T.ink,{a:'left',b:1,s:12});
+    tx(c,p>.5?'balon mengembang':'balon mengempis',8,bt+38,T.mut,{a:'left',s:11});
+  },
+  bistrip(c,w,h,t,T){
+    const p=ph(t,5),x0=40,L=Math.min(w-140,260),y0=h/2,d=lerp(-1,28,p),on=d<3,lx=x0+L+50;
+    c.fillStyle=T.mut;c.fillRect(x0-14,y0-24,14,48);
+    const path=off=>{c.beginPath();for(let i=0;i<=30;i++){const u=i/30;i?c.lineTo(x0+L*u,y0+d*u*u+off):c.moveTo(x0,y0+off)}c.stroke()};
+    c.lineWidth=8;c.strokeStyle='#d9a441';path(-4);c.strokeStyle='#6b7280';path(4);
+    c.fillStyle=T.ink;c.fillRect(x0+L-4,y0-15,8,6);
+    c.strokeStyle=on?'#f59e0b':'#94a3b8';c.lineWidth=2;c.beginPath();c.moveTo(x0+L,y0-15);c.lineTo(x0+L,y0-44);c.lineTo(lx-12,y0-44);c.stroke();
+    if(on){const g=c.createRadialGradient(lx,y0-44,3,lx,y0-44,34);g.addColorStop(0,'rgba(253,224,71,.9)');g.addColorStop(1,'rgba(253,224,71,0)');c.fillStyle=g;c.fillRect(lx-34,y0-78,68,68)}
+    c.fillStyle=on?'#fde047':'#cbd5e1';c.strokeStyle=T.ink;c.beginPath();c.arc(lx,y0-44,12,0,7);c.fill();c.stroke();
+    tx(c,on?'lampu menyala':'lampu padam',lx,y0-20,T.ink,{b:1,s:10});
+    tx(c,'kuningan',x0+8,y0-12,T.ink,{a:'left',b:1,s:10});tx(c,'besi',x0+8,y0+22,T.ink,{a:'left',b:1,s:10});
+    for(const u of [.25,.5,.75])fl(c,x0+L*u,h-4,lerp(0,22,p),t);
+  },
+  rail(c,w,h,t,T){const p=ph(t,6);sky(c,w-20,20,p);railCore(c,w,h,p,h-20,h-32,T.ink,T.line)},
+  bridge(c,w,h,t,T){
+    const p=ph(t,6),dy=h-62,end=lerp(w-50,w-38,p);sky(c,w/2,18,p);
+    c.fillStyle='rgba(59,130,246,.35)';c.fillRect(0,h-16,w,16);
+    c.fillStyle=T.mut;c.fillRect(0,dy+10,26,h-dy);c.fillRect(w-26,dy,26,h-dy);c.fillRect(w/2-5,dy+10,10,h-dy);
+    c.fillRect(w-38,dy+3,12,3);
+    c.fillStyle=metal(p);c.fillRect(4,dy,end-4,10);c.fillRect(end,dy,10,3);c.fillRect(end,dy+6,10,3);
+    c.strokeStyle=T.mut;c.lineWidth=1;c.beginPath();c.moveTo(4,dy-8);c.lineTo(end,dy-8);for(let x=8;x<end;x+=16){c.moveTo(x,dy-8);c.lineTo(x,dy)}c.stroke();
+    tx(c,'sambungan ↓',w-34,dy-14,T.ink,{b:1,s:10});
+  },
+  road(c,w,h,t,T){
+    const p=ph(t,6),y=h-40,sw=(w-16)/4,g=lerp(9,2,p);sky(c,w-20,18,p);
+    c.fillStyle=T.line;c.fillRect(0,y+16,w,h-y-16);
+    c.fillStyle=concrete(p);for(let i=0;i<4;i++)c.fillRect(8+i*sw+g/2,y,sw-g,16);
+    c.fillStyle='#334155';for(let i=1;i<4;i++){const b=lerp(0,5,p);c.fillRect(8+i*sw-g/2,y-b,g,16+b)}
+    tx(c,'siar muai ↓',8+2*sw,y-12,T.ink,{b:1,s:10});
+  },
+  pipe(c,w,h,t,T){
+    const p=ph(t,6),y=h-26,top=22,e=lerp(0,10,p),xL=w/2-38+e,xR=w/2+38-e,r=10;
+    c.fillStyle=T.mut;c.fillRect(4,y-12,8,24);c.fillRect(w-12,y-12,8,24);
+    c.beginPath();c.moveTo(12,y);c.lineTo(xL-r,y);c.quadraticCurveTo(xL,y,xL,y-r);c.lineTo(xL,top+r);c.quadraticCurveTo(xL,top,xL+r,top);
+    c.lineTo(xR-r,top);c.quadraticCurveTo(xR,top,xR,top+r);c.lineTo(xR,y-r);c.quadraticCurveTo(xR,y,xR+r,y);c.lineTo(w-12,y);
+    c.lineJoin='round';c.strokeStyle=metal(p);c.lineWidth=9;c.stroke();c.strokeStyle='rgba(255,255,255,.35)';c.lineWidth=2;c.stroke();
+    tx(c,'loop U',w/2,(top+y)/2+4,T.mut,{b:1});tx(c,'jangkar',8,y+24,T.mut,{a:'left',s:9});
+  },
+  cable(c,w,h,t,T){
+    const p=ph(t,6),s=lerp(8,30,p),ty=30;sky(c,w/2,14,p);
+    c.strokeStyle=T.mut;c.lineWidth=2;
+    for(const x of [26,w-26]){c.beginPath();c.moveTo(x-11,h-6);c.lineTo(x,ty-6);c.lineTo(x+11,h-6);c.moveTo(x-12,ty);c.lineTo(x+12,ty);c.moveTo(x-7,ty+30);c.lineTo(x+7,ty+30);c.stroke()}
+    c.strokeStyle=metal(p);c.lineWidth=2.5;c.beginPath();c.moveTo(26,ty);c.quadraticCurveTo(w/2,ty+2*s,w-26,ty);c.stroke();
+    tx(c,p>.5?'panas: kabel melendut':'dingin: kabel lebih kencang',w/2,h-6,T.ink,{b:1,s:10});
+  },
+  tank(c,w,h,t,T){
+    const p=ph(t,6),x=w/2-48,y=14,tw=96,th=h-30,lv=lerp(.62,.8,p)*th;sky(c,w-20,18,p);
+    c.fillStyle=T.line;c.fillRect(0,y+th,w,h-y-th);
+    c.save();rr(c,x,y,tw,th,10);c.clip();c.fillStyle='rgba(245,158,11,.8)';c.fillRect(x,y+th-lv,tw,lv);c.restore();
+    c.strokeStyle=T.ink;c.lineWidth=2;rr(c,x,y,tw,th,10);c.stroke();
+    tx(c,'ruang kosong',w/2,y+16,T.mut,{b:1,s:10});tx(c,'BBM',w/2,y+th-10,'#fff',{b:1});
+  },
+  shrink(c,w,h,t,T){
+    const u=(t%7)/7,far=w*.3,cx=w*.36,cy=h/2+6,rs=16;let a,dx;
+    if(u<.3){a=u/.3;dx=far}else if(u<.5){a=1;dx=lerp(far,0,(u-.3)/.2)}else if(u<.85){a=lerp(1,0,(u-.5)/.35);dx=0}else{a=0;dx=0}
+    c.fillStyle='#64748b';c.beginPath();c.arc(cx,cy,rs,0,7);c.fill();c.fillStyle='#94a3b8';c.beginPath();c.arc(cx-4,cy-4,6,0,7);c.fill();
+    const ri=dx?lerp(15,19,a):Math.max(rs,lerp(15,19,a)),ro=ri+12;
+    c.fillStyle=metal(a);c.beginPath();c.arc(cx+dx,cy,ro,0,2*Math.PI);c.moveTo(cx+dx+ri,cy);c.arc(cx+dx,cy,ri,2*Math.PI,0,true);c.fill('evenodd');
+    if(u<.3)fl(c,cx+dx,h-2,lerp(4,20,a),t);
+    tx(c,u<.3?'1. Cincin dipanaskan, lubang membesar':u<.5?'2. Cincin dimasukkan ke poros':u<.85?'3. Cincin dingin dan menyusut':'✓ Mencengkeram kuat',8,14,T.ink,{a:'left',b:1});
+  },
+  rivet(c,w,h,t,T){
+    const u=(t%6)/6,a=u<.15?1:Math.max(0,1-(u-.15)/.55),cx=w/2,cy=h/2+4,g=lerp(0,6,a);
+    c.fillStyle='#94a3b8';c.fillRect(16,cy-12-g/2,w*.62,10);c.fillStyle='#7c8aa0';c.fillRect(w*.38-16,cy+2+g/2,w*.62,10);
+    const top=cy-12-g/2,bot=cy+12+g/2;
+    c.fillStyle=metal(a);
+    if(a>.3){c.shadowColor='#f97316';c.shadowBlur=14*a}
+    c.fillRect(cx-5,top-1,10,bot-top+2);
+    c.beginPath();c.ellipse(cx,top,12,8,0,Math.PI,0);c.fill();c.beginPath();c.ellipse(cx,bot,12,8,0,0,Math.PI);c.fill();c.shadowBlur=0;
+    if(a<.3){c.strokeStyle=T.ink;c.lineWidth=2;c.beginPath();
+      c.moveTo(cx,top-24);c.lineTo(cx,top-11);c.moveTo(cx-4,top-15);c.lineTo(cx,top-11);c.lineTo(cx+4,top-15);
+      c.moveTo(cx,bot+24);c.lineTo(cx,bot+11);c.moveTo(cx-4,bot+15);c.lineTo(cx,bot+11);c.lineTo(cx+4,bot+15);c.stroke()}
+    tx(c,a>.3?'Paku membara dipasang':'Dingin → pelat terjepit rapat',8,14,T.ink,{a:'left',b:1});
+  },
+  thermo(c,w,h,t,T){
+    const P=2.5,gx=30,gy=10,gw=w-120,gh=h-34,lo=.25,hi=.75,f=s=>lo+(hi-lo)*tri(s/P),on=(((t/P)%2)+2)%2>=1;
+    c.strokeStyle=T.mut;c.lineWidth=1;c.beginPath();c.moveTo(gx,gy);c.lineTo(gx,gy+gh);c.lineTo(gx+gw,gy+gh);c.stroke();
+    c.setLineDash([4,3]);c.beginPath();c.moveTo(gx,gy+gh*(1-hi));c.lineTo(gx+gw,gy+gh*(1-hi));c.stroke();c.setLineDash([]);
+    c.strokeStyle='#ef4444';c.lineWidth=2;c.beginPath();
+    for(let i=0;i<=gw;i+=2){const y=gy+gh*(1-f(t-(gw-i)/gw*8));i?c.lineTo(gx+i,y):c.moveTo(gx+i,y)}c.stroke();
+    c.fillStyle='#ef4444';c.beginPath();c.arc(gx+gw,gy+gh*(1-f(t)),4,0,7);c.fill();
+    tx(c,'suhu',gx+4,gy+8,T.mut,{a:'left',s:10});tx(c,'waktu',gx+gw,gy+gh+13,T.mut,{a:'right',s:10});
+    const lx=w-36;
+    if(on){const g=c.createRadialGradient(lx,32,3,lx,32,30);g.addColorStop(0,'rgba(253,224,71,.9)');g.addColorStop(1,'rgba(253,224,71,0)');c.fillStyle=g;c.fillRect(lx-30,2,60,60)}
+    c.fillStyle=on?'#fde047':'#cbd5e1';c.strokeStyle=T.ink;c.lineWidth=1.5;c.beginPath();c.arc(lx,32,11,0,7);c.fill();c.stroke();
+    tx(c,on?'pemanas ON':'pemanas OFF',lx,58,T.ink,{b:1,s:10});
+    const d=on?0:9,path=off=>{c.beginPath();c.moveTo(lx-22,84+off);c.quadraticCurveTo(lx,84+off,lx+20,84+d+off);c.stroke()};
+    c.lineWidth=4;c.strokeStyle='#d9a441';path(-2);c.strokeStyle='#6b7280';path(2);tx(c,'bimetal',lx,h-6,T.mut,{s:10});
+  },
+  engine(c,w,h,t,T){
+    const th=t*3,cx=w*.3,cw=44,cr=12,cyc=h-18,rod=48,px=cx+cr*Math.sin(th),py=cyc-cr*Math.cos(th);
+    const pt=py-Math.sqrt(rod*rod-(px-cx)**2)-20,boom=Math.max(0,Math.cos(th))**6;
+    c.fillStyle=`rgba(249,115,22,${.15+.75*boom})`;c.fillRect(cx-cw/2,8,cw,pt-8);
+    c.fillStyle=T.mut;c.fillRect(cx-cw/2-6,2,6,h-58);c.fillRect(cx+cw/2,2,6,h-58);c.fillRect(cx-cw/2-6,2,cw+12,6);
+    c.fillStyle=T.ink;c.fillRect(cx-3,0,6,10);
+    if(boom>.7){c.strokeStyle='#facc15';c.lineWidth=2;c.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3;c.moveTo(cx,13);c.lineTo(cx+Math.cos(a)*7,13+Math.sin(a)*7)}c.stroke()}
+    c.fillStyle='#94a3b8';c.fillRect(cx-cw/2+1,pt,cw-2,18);c.strokeStyle='#64748b';c.lineWidth=1;c.beginPath();c.moveTo(cx-cw/2+1,pt+4);c.lineTo(cx+cw/2-1,pt+4);c.moveTo(cx-cw/2+1,pt+8);c.lineTo(cx+cw/2-1,pt+8);c.stroke();
+    c.strokeStyle=T.ink;c.lineWidth=4;c.beginPath();c.moveTo(cx,pt+12);c.lineTo(px,py);c.stroke();
+    c.lineWidth=2;c.beginPath();c.arc(cx,cyc,cr+3,0,7);c.stroke();c.fillStyle=T.ink;c.beginPath();c.arc(px,py,3,0,7);c.fill();
+    tx(c,'Gas panas',w*.68,44,T.ink,{b:1});tx(c,'memuai dan',w*.68,60,T.ink);tx(c,'mendorong piston',w*.68,76,T.ink);
+  },
+  hotair(c,w,h,t,T){
+    const p=ph(t,8),up=Math.sin(2*Math.PI*t/8)>0,cx=w*.7,by=lerp(h-34,48,p);
+    c.fillStyle=T.line;for(let k=0;k<2;k++){const x=((t*12+k*w*.6)%(w+60))-30,y=22+k*34;c.beginPath();c.arc(x,y,9,0,7);c.arc(x+11,y-4,11,0,7);c.arc(x+22,y,9,0,7);c.fill()}
+    c.fillStyle='rgba(34,197,94,.35)';c.fillRect(0,h-8,w,8);
+    c.save();c.beginPath();c.moveTo(cx-10,by+8);c.bezierCurveTo(cx-32,by-6,cx-28,by-40,cx,by-40);c.bezierCurveTo(cx+28,by-40,cx+32,by-6,cx+10,by+8);c.closePath();
+    c.fillStyle='#ef4444';c.fill();c.clip();c.fillStyle='#fde047';c.fillRect(cx-5,by-42,10,52);c.fillRect(cx-22,by-42,5,52);c.fillRect(cx+17,by-42,5,52);c.restore();
+    c.strokeStyle=T.ink;c.lineWidth=1;c.beginPath();c.moveTo(cx-10,by+8);c.lineTo(cx-6,by+16);c.moveTo(cx+10,by+8);c.lineTo(cx+6,by+16);c.stroke();
+    c.fillStyle='#92400e';c.fillRect(cx-7,by+16,14,10);
+    if(up)fl(c,cx,by+14,10,t);
+    tx(c,up?'Udara dipanaskan → naik':'Udara mendingin → turun',8,14,T.ink,{a:'left',b:1});
+  },
+  tmeter(c,w,h,t,T){
+    const p=ph(t,6),cx=w*.42,bx=cx-34,bw=68,bt=40,bb=h-26,x=cx+10,tt=6,tb=bb-14;
+    c.fillStyle=hot(p,.35);c.fillRect(bx,bt+14,bw,bb-bt-14);
+    c.strokeStyle=T.ink;c.lineWidth=2;c.beginPath();c.moveTo(bx,bt);c.lineTo(bx,bb);c.lineTo(bx+bw,bb);c.lineTo(bx+bw,bt);c.stroke();
+    c.fillStyle=T.mut;c.fillRect(bx-6,bb+2,bw+12,5);fl(c,cx,h-1,lerp(0,16,p),t);
+    const lv=lerp(.25,.85,p)*(tb-tt);c.fillStyle='#ef4444';c.fillRect(x-2,tb-lv,4,lv+2);
+    c.strokeStyle=T.ink;c.lineWidth=1.5;rr(c,x-4,tt,8,tb-tt,4);c.stroke();c.beginPath();c.arc(x,tb+5,6,0,7);c.fill();c.stroke();
+    c.beginPath();for(let i=0;i<6;i++){const y=tt+8+i*(tb-tt-16)/5;c.moveTo(x+4,y);c.lineTo(x+9,y)}c.stroke();
+    tx(c,Math.round(lerp(25,90,p))+' °C',w*.8,h/2,T.ink,{b:1,s:15});
+  },
+  beton(c,w,h,t,T){
+    const p=ph(t,6),k=lerp(0,14,p),x0=14,L=w-60,y=h/2-14,bh=34;sky(c,w-18,16,p);
+    c.fillStyle=concrete(p);c.fillRect(x0,y,L+k,bh);
+    c.strokeStyle='#9a3412';c.lineWidth=3;for(const r of [8,bh-8]){c.beginPath();c.moveTo(x0+4,y+r);c.lineTo(x0+L+k-4,y+r);c.stroke()}
+    c.setLineDash([4,3]);c.strokeStyle=T.mut;c.lineWidth=1;c.strokeRect(x0,y,L,bh);c.setLineDash([]);
+    tx(c,'beton',x0+L/2,y+bh/2+4,'#44403c',{b:1});
+    tx(c,'Tidak retak ✓',x0,y-10,'#16a34a',{a:'left',b:1});
+    tx(c,'garis cokelat = baja tulangan, memuai bersama beton',x0,y+bh+16,T.ink,{a:'left',s:10});
+  },
+  glass(c,w,h,t,T){
+    const u=(t%6)/6,a=u<.85?Math.min(1,u/.35):0;
+    for(let i=0;i<2;i++){
+      const cx=w*(i?.72:.28),top=30,bot=h-28,cw=46;
+      if(a>0){c.fillStyle='rgba(249,115,22,.65)';const lh=(bot-top-6)*a;c.fillRect(cx-cw/2+5,bot-lh,cw-10,lh)}
+      if(a>.5){c.strokeStyle=T.mut;c.lineWidth=1.5;for(const dx of [-8,8]){c.beginPath();for(let j=0;j<=8;j++)c.lineTo(cx+dx+3*Math.sin(j*.9+t*4),top-4-j*2);c.stroke()}}
+      c.strokeStyle=i?'#38bdf8':T.mut;c.lineWidth=3;c.beginPath();c.moveTo(cx-cw/2,top);c.lineTo(cx-cw/2+4,bot);c.lineTo(cx+cw/2-4,bot);c.lineTo(cx+cw/2,top);c.stroke();
+      if(!i&&u>.3&&u<.85){c.strokeStyle='#dc2626';c.lineWidth=2;c.beginPath();c.moveTo(cx-cw/2+2,top+8);c.lineTo(cx-8,top+22);c.lineTo(cx-2,top+16);c.lineTo(cx+6,bot-10);c.stroke()}
+      tx(c,i?'borosilikat ✓':'kaca biasa ✗',cx,h-8,i?'#16a34a':'#dc2626',{b:1});
+    }
+    tx(c,'air panas dituang',w/2,14,T.ink,{b:1,s:10});
+  },
+  invar(c,w,h,t,T){
+    const p=ph(t,6),x0=22,L=w-90,k=lerp(0,22,p);
+    c.fillStyle=T.mut;c.fillRect(x0-10,10,10,h-30);
+    c.strokeStyle=T.mut;c.lineWidth=1;c.beginPath();c.moveTo(x0,20);c.lineTo(x0+L+30,20);for(let x=x0;x<=x0+L+30;x+=10){c.moveTo(x,20);c.lineTo(x,x%50?24:27)}c.stroke();
+    c.fillStyle=metal(p);c.fillRect(x0,34,L+k,12);c.fillStyle=`hsl(265 ${Math.round(lerp(30,55,p))}% 65%)`;c.fillRect(x0,62,L+k*.08,12);
+    c.setLineDash([4,3]);c.beginPath();c.moveTo(x0+L,28);c.lineTo(x0+L,80);c.stroke();c.setLineDash([]);
+    tx(c,'baja',x0+L+k+6,44,T.ink,{a:'left',b:1,s:10});tx(c,'invar',x0+L+8,72,T.ink,{a:'left',b:1,s:10});
+    for(let i=0;i<3;i++)fl(c,x0+20+i*(L-40)/2,h-4,lerp(0,14,p),t);
+  },
+  bulb(c,w,h,t,T){
+    const p=ph(t,4),cx=w*.38,cy=44,R=28;
+    if(p>.05){const g=c.createRadialGradient(cx,cy,4,cx,cy,R*2.2);g.addColorStop(0,`rgba(253,224,71,${.8*p})`);g.addColorStop(1,'rgba(253,224,71,0)');c.fillStyle=g;c.fillRect(cx-R*2.2,cy-R*2.2,R*4.4,R*4.4)}
+    c.strokeStyle=T.ink;c.lineWidth=2;c.beginPath();c.arc(cx,cy,R,Math.PI*.75,Math.PI*.25);c.lineTo(cx+12,cy+40);c.moveTo(cx-R*.707,cy+R*.707);c.lineTo(cx-12,cy+40);c.stroke();
+    c.fillStyle='rgba(56,189,248,.5)';c.fillRect(cx-12,cy+30,24,10);
+    c.fillStyle=T.mut;c.fillRect(cx-12,cy+40,24,18);c.strokeStyle=T.ink;c.lineWidth=1;c.beginPath();for(const y of [46,52]){c.moveTo(cx-12,cy+y);c.lineTo(cx+12,cy+y)}c.stroke();
+    c.strokeStyle=T.ink;c.lineWidth=1.5;c.beginPath();c.moveTo(cx-6,cy+42);c.lineTo(cx-6,cy+4);c.moveTo(cx+6,cy+42);c.lineTo(cx+6,cy+4);c.stroke();
+    c.strokeStyle=`hsl(40 100% ${Math.round(lerp(35,65,p))}%)`;c.lineWidth=2;c.beginPath();c.moveTo(cx-6,cy+4);for(let i=1;i<=6;i++)c.lineTo(cx-6+i*2,cy+4+(i%2?-5:0));c.stroke();
+    tx(c,'← segel kaca-logam',cx+16,cy+38,T.ink,{a:'left',s:10});tx(c,'tetap rapat ✓',cx+26,cy+52,'#16a34a',{a:'left',b:1,s:10});
+  },
+  clear(c,w,h,t,T){
+    const p=ph(t,5),cx=w*.34,iw=60,pw=lerp(50,57,p),py=26+8*Math.sin(t*2.2);
+    c.fillStyle='#64748b';c.fillRect(cx-iw/2-8,6,8,h-12);c.fillRect(cx+iw/2,6,8,h-12);
+    c.fillStyle=metal(p);c.fillRect(cx-pw/2,py,pw,40);
+    c.strokeStyle='rgba(0,0,0,.3)';c.lineWidth=1.5;c.beginPath();for(const y of [6,11]){c.moveTo(cx-pw/2,py+y);c.lineTo(cx+pw/2,py+y)}c.stroke();
+    c.strokeStyle=T.mut;c.lineWidth=5;c.beginPath();c.moveTo(cx,py+40);c.lineTo(cx,h-2);c.stroke();
+    c.strokeStyle='#f97316';c.lineWidth=2;c.beginPath();c.moveTo(cx+pw/2,py+24);c.lineTo(cx+iw/2,py+24);c.stroke();
+    tx(c,'celah tetap ada ✓',w*.6,40,'#16a34a',{a:'left',b:1,s:10});tx(c,'piston aluminium',w*.6,58,T.ink,{a:'left',s:10});tx(c,'memuai lebih besar',w*.6,72,T.ink,{a:'left',s:10});
+  }
+};
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const minis=$$('canvas.mini');
+function drawMinis(ts){
+  // hanya gambar yang sedang terlihat di layar
+  const vis=minis.filter(cv=>{const r=cv.getBoundingClientRect();return r.width>10&&r.bottom>0&&r.top<innerHeight});
+  if(!vis.length)return;
+  const T={ink:cssv('--ink'),mut:cssv('--muted'),line:cssv('--line')},t=RM?2.5:ts/1000;
+  for(const cv of vis){
+    const f=MINI[cv.dataset.a];if(!f)continue;
+    const {c,w,h}=setup(cv);
+    c.clearRect(0,0,w,h);c.save();f(c,w,h,t,T);c.restore();
+  }
+}
+
+/* ---------- Loop utama ---------- */
+let last=0;
+function loop(ts){
+  const dt=Math.min(.05,(ts-last)/1000||.016);last=ts;
+  // gambar simulasi bab yang sedang terbuka (bisa dua bab pada tampilan dua halaman)
+  if(ACT.has('padat'))drawPadat(ts);
+  if(ACT.has('cair')){drawCair();drawWater()}
+  if(ACT.has('gas')){stepGas(dt);drawGas();drawGG()}
+  if(ACT.has('bimetal')){stepBi(dt);drawBi(ts);if(B.auto)$('#bT').value=B.T;updBi()}
+  drawMinis(ts);
+  requestAnimationFrame(loop);
+}
+updPadat();renderTable();updCair();updWater();updGas();updBi();renderQ();
+paginate();  // modul selalu dibuka dari sampul
+addEventListener('load',()=>paginate());
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
